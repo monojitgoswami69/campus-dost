@@ -69,4 +69,4 @@ Thumbs.db
 .coverage
 htmlcov/
 
-service*
+service*.json
