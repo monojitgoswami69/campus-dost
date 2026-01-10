@@ -29,13 +29,7 @@ venv/
 ENV/
 env/
 
-# API key test files
-key_testers/
 .venv/
-
-# Setup scripts with credentials
-setup_dropbox.py
-setup_firebase.py
 
 # IDE
 .idea/
