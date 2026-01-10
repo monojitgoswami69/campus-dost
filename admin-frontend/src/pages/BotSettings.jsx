@@ -36,7 +36,9 @@ export default function Settings() {
 
   // Modal state
   const [showConfidenceInfo, setShowConfidenceInfo] = useState(false);
+  const [showNotificationInfo, setShowNotificationInfo] = useState(false);
   const confidenceInfoRef = useRef(null);
+  const notificationInfoRef = useRef(null);
 
   // Close popup when clicking outside
   useEffect(() => {
@@ -44,16 +46,19 @@ export default function Settings() {
       if (confidenceInfoRef.current && !confidenceInfoRef.current.contains(event.target)) {
         setShowConfidenceInfo(false);
       }
+      if (notificationInfoRef.current && !notificationInfoRef.current.contains(event.target)) {
+        setShowNotificationInfo(false);
+      }
     };
 
-    if (showConfidenceInfo) {
+    if (showConfidenceInfo || showNotificationInfo) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showConfidenceInfo]);
+  }, [showConfidenceInfo, showNotificationInfo]);
 
   // Load settings from localStorage on mount
   useEffect(() => {
@@ -405,29 +410,66 @@ export default function Settings() {
           <div className="space-y-2 sm:space-y-4 md:space-y-5">
             {/* Email on Handoff Toggle */}
             <div className="flex items-start justify-between gap-3 sm:gap-4">
-              <div className="flex-1">
-                <h3 className="text-xs sm:text-base font-semibold text-neutral-900 mb-0.5 sm:mb-1">
-                  Email on Human Handoff
-                </h3>
-                <p className="text-[11px] sm:text-sm text-neutral-600">
-                  Receive an email when a user's query requires human intervention.
-                </p>
+              <div className="flex-1 relative">
+                <div className="flex items-center gap-1 mb-0.5 sm:mb-1">
+                  <h3 className="text-xs sm:text-base font-semibold text-neutral-900">
+                    Email on Human Handoff
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowNotificationInfo(!showNotificationInfo)}
+                    className="p-0.5 text-neutral-400 hover:text-primary-600 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 rounded"
+                    aria-label="More information"
+                  >
+                    <Info className="w-3 h-3 sm:w-4 sm:h-4" />
+                  </button>
+                </div>
+                
+                {/* Info Popup */}
+                {showNotificationInfo && (
+                  <motion.div
+                    ref={notificationInfoRef}
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 5 }}
+                    className="absolute z-10 mb-2 w-full max-w-sm bg-white border border-neutral-200 rounded-lg shadow-lg p-2"
+                    style={{ bottom: 'calc(100% + 0.5rem)' }}
+                  >
+                    <div className="flex items-start gap-2">
+                      <Info className="w-3.5 h-3.5 text-primary-600 flex-shrink-0 mt-0.5" />
+                      <p className="text-[11px] sm:text-sm text-neutral-700">
+                        Receive an email when a user's query requires human intervention.
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
               </div>
+              {/* Custom sliding switch for mobile and desktop */}
               <button
+                type="button"
                 onClick={() => setNotifications({ ...notifications, emailOnHandoff: !notifications.emailOnHandoff })}
                 className={cn(
-                  'relative inline-flex h-6 w-11 sm:h-7 sm:w-12 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 flex-shrink-0',
-                  notifications.emailOnHandoff ? 'bg-primary-600' : 'bg-neutral-300'
+                  'relative inline-flex items-center flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-colors',
+                  notifications.emailOnHandoff ? 'bg-primary-600' : 'bg-neutral-300',
+                  'w-11 h-6 sm:w-12 sm:h-7 rounded-full duration-200'
                 )}
                 role="switch"
                 aria-checked={notifications.emailOnHandoff}
+                aria-label="Toggle email on human handoff"
               >
+                <span className="sr-only">Toggle email on human handoff</span>
                 <motion.span
-                  className="inline-block h-4.5 w-4.5 sm:h-5 sm:w-5 transform rounded-full bg-white shadow-lg"
+                  className="absolute left-0 top-0 h-6 w-11 sm:h-7 sm:w-12 rounded-full"
+                  style={{ background: 'transparent' }}
+                  aria-hidden="true"
+                />
+                <motion.span
+                  className="inline-block h-5 w-5 sm:h-6 sm:w-6 rounded-full bg-white shadow-lg transform"
                   animate={{
-                    x: notifications.emailOnHandoff ? (window.innerWidth < 640 ? 24 : 28) : 4
+                    x: notifications.emailOnHandoff ? (window.innerWidth < 640 ? 22 : 28) : 2
                   }}
                   transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                  style={{ boxShadow: '0 1px 4px 0 rgba(0,0,0,0.10)' }}
                 />
               </button>
             </div>
@@ -497,21 +539,21 @@ export default function Settings() {
               Export your settings as a backup or import previously saved settings. You can also reset all settings to their default values.
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3">
+            <div className="flex flex-row gap-1 sm:grid sm:grid-cols-3 sm:gap-3">
               {/* Export Settings */}
               <Button
                 onClick={handleExportSettings}
                 variant="secondary"
                 size="small"
-                className="w-full justify-center text-[11px] sm:text-sm px-2 sm:px-4"
+                className="flex-1 justify-center text-[11px] sm:text-sm px-2 sm:px-4"
               >
                 <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                <span className="sm:hidden">Export Settings</span>
+                <span className="sm:hidden">Export</span>
                 <span className="hidden sm:inline">Export Settings</span>
               </Button>
 
               {/* Import Settings */}
-              <label className="relative">
+              <label className="flex-1 relative">
                 <input
                   type="file"
                   accept=".json"
@@ -525,7 +567,7 @@ export default function Settings() {
                   className="w-full justify-center cursor-pointer text-[11px] sm:text-sm px-2 sm:px-4"
                 >
                   <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  <span className="sm:hidden">Import Settings</span>
+                  <span className="sm:hidden">Import</span>
                   <span className="hidden sm:inline">Import Settings</span>
                 </Button>
               </label>
@@ -535,10 +577,10 @@ export default function Settings() {
                 onClick={handleResetToDefaults}
                 variant="secondary"
                 size="small"
-                className="w-full justify-center text-red-600 hover:bg-red-50 hover:border-red-300 text-[11px] sm:text-sm px-2 sm:px-4"
+                className="flex-1 justify-center text-red-600 hover:bg-red-50 hover:border-red-300 text-[11px] sm:text-sm px-2 sm:px-4"
               >
                 <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                <span className="sm:hidden">Reset to Defaults</span>
+                <span className="sm:hidden">Reset</span>
                 <span className="hidden sm:inline">Reset to Defaults</span>
               </Button>
             </div>
