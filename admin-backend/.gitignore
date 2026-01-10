@@ -33,6 +33,10 @@ env/
 key_testers/
 .venv/
 
+# Setup scripts with credentials
+setup_dropbox.py
+setup_firebase.py
+
 # IDE
 .idea/
 .vscode/
