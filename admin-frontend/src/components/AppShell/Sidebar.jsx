@@ -13,7 +13,9 @@ import {
   Settings, 
   LogOut, 
   X,
-  BarChart3
+  BarChart3,
+  HelpCircle,
+  FileText
 } from 'lucide-react';
 
 const navItems = [
@@ -54,6 +56,12 @@ const navItems = [
     icon: BarChart3
   },
   {
+    id: 'unsolved-queries',
+    label: 'Unsolved Queries',
+    path: '/unsolved-queries',
+    icon: HelpCircle
+  },
+  {
     id: 'bot-settings',
     label: 'Bot Settings',
     path: '/bot-settings',
@@ -63,7 +71,7 @@ const navItems = [
     id: 'system-instructions',
     label: 'System Instructions',
     path: '/system-instructions',
-    icon: Settings
+    icon: FileText
   }
 ];
 

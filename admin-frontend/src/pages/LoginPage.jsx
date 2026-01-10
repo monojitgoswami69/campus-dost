@@ -22,8 +22,7 @@ export default function LoginPage() {
 
   const [mode, setMode] = useState('login'); // 'login' or 'register'
   const [formData, setFormData] = useState({ 
-    email: '',
-    username: '', 
+    email: '', 
     password: '',
     organisationId: '',
     organisationName: '',
@@ -129,7 +128,7 @@ export default function LoginPage() {
     <div className="min-h-screen w-full flex bg-neutral-950 text-neutral-100">
       
       {/* --- LEFT PANEL: Brand & Info --- */}
-      <div className="hidden lg:flex w-1/2 relative bg-neutral-900">
+      <div className="hidden lg:flex w-1/2 h-screen overflow-hidden relative bg-neutral-900 sticky top-0">
         {/* Subtle gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/40 via-transparent to-violet-950/30" />
         
@@ -325,27 +324,29 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* Username */}
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider ml-1">Username</label>
-              <div className="relative group">
-                <input
-                  type="text"
-                  value={formData.username}
-                  onChange={(e) => handleInputChange('username', e.target.value)}
-                  className={`block w-full rounded-xl border-2 bg-neutral-900/50 px-4 py-3.5 pl-11 text-sm text-white transition-colors focus:outline-none focus:ring-0 ${
-                    errorField === 'username' 
-                      ? 'border-red-500/50 focus:border-red-500' 
-                      : 'border-neutral-800 hover:border-neutral-700 focus:border-indigo-500'
-                  }`}
-                  placeholder={mode === 'login' ? 'admin@organization.com' : 'campus_hero'}
-                  required
-                />
-                <User className={`absolute left-4 top-3.5 h-5 w-5 transition-colors ${
-                  errorField === 'username' ? 'text-red-400' : 'text-neutral-500 group-focus-within:text-indigo-400'
-                }`} />
+            {/* Username - Only for Login */}
+            {mode === 'login' && (
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider ml-1">Username</label>
+                <div className="relative group">
+                  <input
+                    type="text"
+                    value={formData.username}
+                    onChange={(e) => handleInputChange('username', e.target.value)}
+                    className={`block w-full rounded-xl border-2 bg-neutral-900/50 px-4 py-3.5 pl-11 text-sm text-white transition-colors focus:outline-none focus:ring-0 ${
+                      errorField === 'username' 
+                        ? 'border-red-500/50 focus:border-red-500' 
+                        : 'border-neutral-800 hover:border-neutral-700 focus:border-indigo-500'
+                    }`}
+                    placeholder="admin@organization.com"
+                    required
+                  />
+                  <User className={`absolute left-4 top-3.5 h-5 w-5 transition-colors ${
+                    errorField === 'username' ? 'text-red-400' : 'text-neutral-500 group-focus-within:text-indigo-400'
+                  }`} />
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Password */}
             <div className="space-y-2">

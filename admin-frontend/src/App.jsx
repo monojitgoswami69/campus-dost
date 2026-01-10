@@ -41,6 +41,7 @@ const KnowledgeBasePage = lazy(() => import('./pages/KnowledgeBasePage'));
 const AddDocumentPage = lazy(() => import('./pages/AddDocumentPage'));
 const AddTextPage = lazy(() => import('./pages/AddTextPage'));
 const QueryAnalyticsPage = lazy(() => import('./pages/QueryAnalytics'));
+const UnsolvedQueriesPage = lazy(() => import('./pages/UnsolvedQueries'));
 const BotSettingsPage = lazy(() => import('./pages/BotSettings'));
 const SystemInstructionsPage = lazy(() => import('./pages/SystemInstructionsPage'));
 const ArchivePage = lazy(() => import('./pages/ArchivePage'));
@@ -228,6 +229,12 @@ function AppContent() {
           <Route path="query-analytics" element={
             <PageWrapper title="Query Analytics" isFixed={true}>
               <QueryAnalyticsPage />
+            </PageWrapper>
+          } />
+
+          <Route path="unsolved-queries" element={
+            <PageWrapper title="Unsolved Queries" isFixed={true}>
+              <UnsolvedQueriesPage />
             </PageWrapper>
           } />
 
