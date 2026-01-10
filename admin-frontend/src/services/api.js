@@ -1,0 +1,806 @@
+/**
+ * API Service for Admin Backend
+ * Handles all HTTP requests to the FastAPI backend
+ */
+
+// Base URL - use environment variable or default to localhost
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+/**
+ * Custom API Error class
+ */
+export class ApiError extends Error {
+  constructor(message, status, data = {}) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.data = data;
+  }
+  
+  get isAuthError() {
+    return this.status === 401 || this.status === 403;
+  }
+  
+  get isServerError() {
+    return this.status >= 500;
+  }
+  
+  get isNetworkError() {
+    return this.status === 0;
+  }
+}
+
+// Storage keys (must match AuthContext)
+const TOKEN_STORAGE_KEY = 'admin_token';
+
+/**
+ * Get JWT token from storage (sessionStorage or localStorage)
+ */
+function getToken() {
+  try {
+    return sessionStorage.getItem(TOKEN_STORAGE_KEY) || localStorage.getItem(TOKEN_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get session object for backward compatibility
+ * Returns an object with token property
+ */
+function getSession() {
+  const token = getToken();
+  return token ? { token } : null;
+}
+
+/**
+ * Update token if server issued a new one (sliding expiration)
+ */
+function handleTokenRefresh(response) {
+  const newToken = response.headers.get('X-New-Token');
+  if (newToken) {
+    sessionStorage.setItem(TOKEN_STORAGE_KEY, newToken);
+    console.log('Token refreshed via sliding expiration');
+  }
+}
+
+/**
+ * Make an API request with authentication
+ */
+async function apiRequest(endpoint, options = {}) {
+  const url = `${API_BASE_URL}${endpoint}`;
+  const token = getToken();
+  const method = (options.method || 'GET').toUpperCase();
+  
+  try {
+    const headers = {
+      ...options.headers,
+    };
+    
+    // Add auth header if token exists
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    // Don't set Content-Type for FormData (browser sets it with boundary)
+    if (!(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
+    
+    const response = await fetch(url, {
+      ...options,
+      method,
+      headers,
+    });
+
+    return handleResponse(response);
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    // Network error or server down
+    throw new ApiError(error.message || 'Network error', 0, { originalError: error });
+  }
+}
+
+async function handleResponse(response) {
+  // Check for token refresh (sliding expiration)
+  handleTokenRefresh(response);
+
+  if (!response.ok) {
+    // Handle 401 - token expired, clear session
+    if (response.status === 401) {
+      sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+      sessionStorage.removeItem('admin_user_info');
+      window.dispatchEvent(new CustomEvent('auth:expired'));
+    }
+    
+    const errorData = await response.json().catch(() => ({}));
+    throw new ApiError(
+      errorData.detail || `HTTP ${response.status}`,
+      response.status,
+      errorData
+    );
+  }
+  
+  return await response.json();
+}
+
+// ============================================
+// Health & Dashboard API
+// ============================================
+
+export const healthApi = {
+  /**
+   * Check server health
+   */
+  async check() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/health`);
+      return response.ok;
+    } catch {
+      return false;
+    }
+  },
+  
+  /**
+   * Get dashboard stats (requires auth)
+   */
+  async getStats() {
+    return apiRequest('/api/v1/dashboard/stats');
+  },
+  
+  /**
+   * Get recent activity
+   */
+  async getActivity(limit = 20) {
+    return apiRequest(`/api/v1/dashboard/activity?limit=${limit}`);
+  },
+  
+  /**
+   * Get weekly activity data
+   */
+  async getWeeklyActivity() {
+    return apiRequest('/api/v1/dashboard/weekly');
+  },
+};
+
+// ============================================
+// Knowledge Base API
+// ============================================
+
+export const knowledgeBaseApi = {
+  /**
+   * List all active documents
+   */
+  async list(limit = 500) {
+    return apiRequest(`/api/v1/knowledge-base/files?limit=${limit}`);
+  },
+  
+  // Alias for backwards compatibility
+  async listDocuments(limit = 500) {
+    return this.list(limit);
+  },
+  
+  /**
+   * Get a single document by ID
+   */
+  async get(documentId) {
+    return apiRequest(`/api/v1/knowledge-base/document/${documentId}`);
+  },
+  
+  // Alias
+  async getDocument(documentId) {
+    return this.get(documentId);
+  },
+  
+  /**
+   * Download document content as blob
+   */
+  async download(documentId) {
+    const token = getToken();
+    const headers = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    const response = await fetch(
+      `${API_BASE_URL}/api/v1/knowledge-base/download/${documentId}`,
+      { headers }
+    );
+    
+    // Check for token refresh
+    handleTokenRefresh(response);
+    
+    if (!response.ok) {
+      if (response.status === 401) {
+        sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+        sessionStorage.removeItem('admin_user_info');
+        window.dispatchEvent(new CustomEvent('auth:expired'));
+      }
+      throw new ApiError('Download failed', response.status);
+    }
+    
+    return response.blob();
+  },
+  
+  // Alias
+  async downloadDocument(documentId) {
+    return this.download(documentId);
+  },
+  
+  /**
+   * Get document content as text for preview
+   */
+  async getContent(documentId) {
+    const token = getToken();
+    const headers = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    const response = await fetch(
+      `${API_BASE_URL}/api/v1/knowledge-base/download/${documentId}`,
+      { headers }
+    );
+    
+    // Check for token refresh
+    handleTokenRefresh(response);
+    
+    if (!response.ok) {
+      if (response.status === 401) {
+        sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+        sessionStorage.removeItem('admin_user_info');
+        window.dispatchEvent(new CustomEvent('auth:expired'));
+      }
+      throw new ApiError('Failed to get content', response.status);
+    }
+    
+    return response.text();
+  },
+  
+  /**
+   * Preview document content (returns blob URL for rendering)
+   */
+  async preview(documentId) {
+    const token = getToken();
+    const headers = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    const response = await fetch(
+      `${API_BASE_URL}/api/v1/knowledge-base/preview/${documentId}`,
+      { headers }
+    );
+    
+    // Check for token refresh
+    handleTokenRefresh(response);
+    
+    if (!response.ok) {
+      if (response.status === 401) {
+        sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+        sessionStorage.removeItem('admin_user_info');
+        window.dispatchEvent(new CustomEvent('auth:expired'));
+      }
+      throw new ApiError('Failed to get preview', response.status);
+    }
+    
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
+  },
+  
+  /**
+   * Archive a document
+   */
+  async archive(documentId, filename = null) {
+    return apiRequest('/api/v1/knowledge-base/archive', {
+      method: 'POST',
+      body: JSON.stringify({ document_id: documentId, filename }),
+    });
+  },
+  
+  // Alias
+  async archiveDocument(documentId, filename = null) {
+    return this.archive(documentId, filename);
+  },
+  
+  /**
+   * Edit/reindex a document
+   */
+  async edit(documentId, content) {
+    return apiRequest('/api/v1/knowledge-base/edit', {
+      method: 'PUT',
+      body: JSON.stringify({ document_id: documentId, content }),
+    });
+  },
+  
+  // Alias
+  async editDocument(documentId, content) {
+    return this.edit(documentId, content);
+  },
+  
+  /**
+   * Permanently delete a document
+   */
+  async delete(documentId) {
+    return apiRequest(`/api/v1/knowledge-base/document/${documentId}`, {
+      method: 'DELETE',
+    });
+  },
+  
+  // Alias
+  async deleteDocument(documentId) {
+    return this.delete(documentId);
+  },
+};
+
+// ============================================
+// Upload API
+// ============================================
+
+export const uploadApi = {
+  /**
+   * Upload a single file with status callbacks
+   * @param {File} file - File to upload
+   * @param {Object} options - Optional metadata
+   * @param {Function} onStatusChange - Callback for status updates (status, progress)
+   */
+  async file(file, options = {}, onStatusChange = null) {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    // Add optional metadata
+    if (options.title) formData.append('title', options.title);
+    if (options.source) formData.append('source', options.source);
+    if (options.tags) formData.append('tags', JSON.stringify(options.tags));
+    
+    // Backend doesn't support streaming, use standard upload with progress callbacks
+
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      
+      // Track upload progress
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable && onStatusChange) {
+          const uploadProgress = Math.round((e.loaded / e.total) * 30); // Upload is 0-30%
+          onStatusChange('uploading', uploadProgress);
+        }
+      });
+      
+      xhr.addEventListener('load', () => {
+        // Check for token refresh
+        const newToken = xhr.getResponseHeader('X-New-Token');
+        if (newToken) {
+          sessionStorage.setItem(TOKEN_STORAGE_KEY, newToken);
+          console.log('Token refreshed via sliding expiration (upload)');
+        }
+        
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const result = JSON.parse(xhr.responseText);
+            if (onStatusChange) onStatusChange('complete', 100);
+            resolve(result);
+          } catch {
+            reject(new ApiError('Invalid response', xhr.status));
+          }
+        } else if (xhr.status === 401) {
+          // Token expired
+          sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+          sessionStorage.removeItem('admin_user_info');
+          window.dispatchEvent(new CustomEvent('auth:expired'));
+          reject(new ApiError('Session expired', 401));
+        } else {
+          try {
+            const errorData = JSON.parse(xhr.responseText);
+            reject(new ApiError(errorData.detail || 'Upload failed', xhr.status, errorData));
+          } catch {
+            reject(new ApiError(xhr.statusText || 'Upload failed', xhr.status));
+          }
+        }
+      });
+      
+      xhr.addEventListener('error', () => {
+        reject(new ApiError('Network error', 0));
+      });
+      
+      xhr.open('POST', `${API_BASE_URL}/api/v1/upload`);
+      const token = getToken();
+      if (token) {
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      }
+      xhr.send(formData);
+    });
+  },
+  
+  /**
+   * Upload multiple files sequentially (backend only supports single file upload)
+   * @param {File[]} files - Array of files
+   * @param {Object} options - Optional metadata
+   * @param {Function} onStatusChange - Callback for status updates (status, progress, fileIndex)
+   */
+  async multiple(files, options = {}, onStatusChange = null) {
+    const results = [];
+    let successCount = 0;
+    
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const overallProgress = Math.round((i / files.length) * 100);
+      
+      if (onStatusChange) {
+        onStatusChange('uploading', overallProgress, i);
+      }
+      
+      try {
+        const result = await this.file(file, options, (status, fileProgress) => {
+          // Convert individual file progress to overall progress
+          const totalProgress = Math.round((i / files.length) * 100 + (fileProgress / files.length));
+          if (onStatusChange) {
+            onStatusChange('uploading', totalProgress, i);
+          }
+        });
+        
+        results.push({ file: file.name, success: true, ...result });
+        successCount++;
+        
+        if (onStatusChange) {
+          onStatusChange('complete', Math.round(((i + 1) / files.length) * 100), i);
+        }
+      } catch (error) {
+        results.push({ file: file.name, success: false, error: error.message });
+        if (onStatusChange) {
+          onStatusChange('error', overallProgress, i);
+        }
+      }
+    }
+    
+    return {
+      status: 'success',
+      total: files.length,
+      successful: successCount,
+      failed: files.length - successCount,
+      results
+    };
+  },
+  
+  /**
+   * Upload archive - archives are not supported, throw error
+   */
+  async uploadArchive(file, options = {}, onStatusChange = null) {
+    throw new ApiError('Archive uploads are not supported in this configuration', 400);
+  },
+};
+
+// ============================================
+// Text Processing API
+// ============================================
+
+export const textApi = {
+  /**
+   * Process text (clean and chunk preview)
+   * @param {string} text - Text to process
+   */
+  async process(text) {
+    return apiRequest('/api/v1/text/process', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+  },
+  
+  /**
+   * Upload processed text to knowledge base
+   * @param {string} filename - Name for the document
+   * @param {string} content - Text content
+   * @param {Function} onStatusChange - Callback for status updates
+   */
+  async upload(filename, content, onStatusChange = null) {
+    if (onStatusChange) onStatusChange('uploading', 10);
+    
+    try {
+      if (onStatusChange) onStatusChange('processing', 30);
+      
+      const result = await apiRequest('/api/v1/text/upload', {
+        method: 'POST',
+        body: JSON.stringify({ filename, content }),
+      });
+      
+      // Simulate processing stages
+      if (onStatusChange) {
+        setTimeout(() => onStatusChange('embedding', 70), 100);
+        setTimeout(() => onStatusChange('storing', 90), 300);
+        setTimeout(() => onStatusChange('complete', 100), 500);
+      }
+      
+      return result;
+    } catch (error) {
+      if (onStatusChange) onStatusChange('error', 0);
+      throw error;
+    }
+  },
+};
+
+// ============================================
+// Archive API
+// ============================================
+
+export const archiveApi = {
+  /**
+   * List archived files
+   */
+  async list(limit = 100) {
+    const response = await apiRequest(`/api/v1/archive?limit=${limit}`);
+    // Backend returns 'files' but normalize to 'documents' for consistency
+    if (response.files && !response.documents) {
+      response.documents = response.files;
+    }
+    return response;
+  },
+  
+  // Alias for backward compatibility
+  async listArchived(limit = 100) {
+    return this.list(limit);
+  },
+  
+  /**
+   * Restore an archived document
+   */
+  async restore(archiveId) {
+    return apiRequest('/api/v1/archive/restore', {
+      method: 'POST',
+      body: JSON.stringify({ archive_id: archiveId }),
+    });
+  },
+  
+  /**
+   * Permanently delete from archive
+   */
+  async delete(archiveId) {
+    return apiRequest(`/api/v1/knowledge-base/document/${archiveId}`, {
+      method: 'DELETE',
+    });
+  },
+  
+  // Alias for backward compatibility
+  async deletePermanent(archiveId) {
+    return this.delete(archiveId);
+  },
+  
+  /**
+   * Download archived document as blob
+   */
+  async download(archiveId) {
+    const token = getToken();
+    const headers = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    // Backend uses same download endpoint for both active and archived documents
+    const response = await fetch(
+      `${API_BASE_URL}/api/v1/knowledge-base/download/${archiveId}`,
+      { headers }
+    );
+    
+    // Check for token refresh
+    handleTokenRefresh(response);
+    
+    if (!response.ok) {
+      if (response.status === 401) {
+        sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+        sessionStorage.removeItem('admin_user_info');
+        window.dispatchEvent(new CustomEvent('auth:expired'));
+      }
+      throw new ApiError('Download failed', response.status);
+    }
+    
+    return response;
+  },
+  
+  /**
+   * Get archived document content as text for preview
+   */
+  async getContent(archiveId) {
+    const token = getToken();
+    const headers = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    // Backend uses same download endpoint for both active and archived documents
+    const response = await fetch(
+      `${API_BASE_URL}/api/v1/knowledge-base/download/${archiveId}`,
+      { headers }
+    );
+    
+    // Check for token refresh
+    handleTokenRefresh(response);
+    
+    if (!response.ok) {
+      if (response.status === 401) {
+        sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+        sessionStorage.removeItem('admin_user_info');
+        window.dispatchEvent(new CustomEvent('auth:expired'));
+      }
+      throw new ApiError('Failed to get content', response.status);
+    }
+    
+    return response.text();
+  },
+  
+  /**
+   * Preview archived document (returns blob URL for rendering)
+   */
+  async preview(archiveId) {
+    const token = getToken();
+    const headers = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    // Backend uses same preview endpoint for both active and archived documents
+    const response = await fetch(
+      `${API_BASE_URL}/api/v1/knowledge-base/preview/${archiveId}`,
+      { headers }
+    );
+    
+    // Check for token refresh
+    handleTokenRefresh(response);
+    
+    if (!response.ok) {
+      if (response.status === 401) {
+        sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+        sessionStorage.removeItem('admin_user_info');
+        window.dispatchEvent(new CustomEvent('auth:expired'));
+      }
+      throw new ApiError('Failed to get preview', response.status);
+    }
+    
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
+  },
+  
+  /**
+   * Trigger manual cleanup
+   */
+  async cleanup(days = null) {
+    const url = days ? `/api/v1/archive/cleanup?days=${days}` : '/api/v1/archive/cleanup';
+    return apiRequest(url, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// ============================================
+// System Instructions API
+// ============================================
+
+export const systemInstructionsApi = {
+  /**
+   * Get current system instructions
+   */
+  async get() {
+    return apiRequest('/api/v1/system-instructions');
+  },
+  
+  /**
+   * Save system instructions (commit to GitHub)
+   */
+  async save(content, message = null) {
+    return apiRequest('/api/v1/system-instructions/save', {
+      method: 'POST',
+      body: JSON.stringify({ content, message }),
+    });
+  },
+  
+  /**
+   * Get version history (from Firestore backups)
+   */
+  async getHistory(limit = 10) {
+    return apiRequest(`/api/v1/system-instructions/history?limit=${limit}`);
+  },
+};
+
+// ============================================
+// Export all APIs - both named and default
+// ============================================
+
+// Auth API
+export const authApi = {
+  /**
+   * Login with credentials
+   */
+  async login(username, password) {
+    const result = await apiRequest('/api/v1/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    });
+    
+    if (result.status === 'success' && result.user) {
+      localStorage.setItem('admin_session', JSON.stringify(result.user));
+    }
+    
+    return result;
+  },
+  
+  /**
+   * Logout
+   */
+  async logout() {
+    localStorage.removeItem('admin_session');
+    return { status: 'success' };
+  },
+  
+  /**
+   * Check if session is valid
+   */
+  isLoggedIn() {
+    return !!getToken();
+  },
+  
+  /**
+   * Get current token
+   */
+  getToken() {
+    return getToken();
+  },
+  
+  /**
+   * Get current session (backward compatibility)
+   */
+  getSession() {
+    return getSession();
+  },
+};
+
+export const api = {
+  auth: authApi,
+  health: healthApi,
+  documents: knowledgeBaseApi,  // Alias for consistency
+  knowledgeBase: knowledgeBaseApi,
+  upload: {
+    file: uploadApi.file,
+    multiple: uploadApi.multiple,
+    archive: uploadApi.uploadArchive,
+  },
+  text: textApi,
+  archive: archiveApi,
+  systemInstructions: systemInstructionsApi,
+  dashboard: {
+    getStats: () => apiRequest('/api/v1/dashboard/stats'),
+    getActivity: (limit = 10) => apiRequest(`/api/v1/dashboard/activity?limit=${limit}`),
+    getWeekly: () => apiRequest('/api/v1/dashboard/weekly'),
+  },
+  /**
+   * Batch download multiple documents as a ZIP file
+   * @param {string[]} documentIds - Array of document IDs to download
+   * @param {string} source - 'knowledge-base' or 'archive'
+   */
+  async batchDownload(documentIds, source = 'knowledge-base') {
+    const token = getToken();
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    const response = await fetch(`${API_BASE_URL}/api/v1/batch-download`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ document_ids: documentIds, source }),
+    });
+    
+    if (!response.ok) {
+      if (response.status === 401) {
+        sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+        sessionStorage.removeItem('admin_user_info');
+        window.dispatchEvent(new CustomEvent('auth:expired'));
+      }
+      throw new ApiError('Batch download failed', response.status);
+    }
+    
+    return response.blob();
+  },
+};
+
+export default api;

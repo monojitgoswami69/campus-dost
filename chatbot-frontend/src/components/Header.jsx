@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import LanguageSelector from './LanguageSelector';
-import avatarImg from '../assets/avatar.png';
+import logoImg from '../assets/logo.png';
 import languageIcon from '../assets/language.svg';
 import sunIcon from '../assets/sun.png';
 import moonIcon from '../assets/moon.png';
@@ -32,8 +32,8 @@ function Header() {
         <header className="chatbot-header">
             <div className="bot-profile">
                 <img 
-                    src={avatarImg} 
-                    alt="Bot Avatar" 
+                    src={logoImg} 
+                    alt="Campus Dost Logo" 
                     className="bot-avatar" 
                     onError={(e) => { e.target.style.display = 'none'; }}
                 />

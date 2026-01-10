@@ -1,0 +1,407 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
+import { healthApi } from '../services/api';
+import logoBlack from '../assets/sc logo black.png';
+import logoWhite from '../assets/sc logo white.png';
+import { 
+  User, 
+  Lock, 
+  Eye, 
+  EyeOff, 
+  ArrowRight, 
+  CheckCircle2, 
+  AlertCircle,
+  Loader2,
+  ShieldCheck,
+  Database,
+  BarChart3,
+  Sliders,
+  Zap,
+  LayoutDashboard,
+  Activity,
+  Server
+} from 'lucide-react';
+
+export default function LoginPage() {
+  const navigate = useNavigate();
+  const { login } = useAuth();
+  const [showLogin, setShowLogin] = useState(false);
+  const [formData, setFormData] = useState({ username: '', password: '' });
+  const [error, setError] = useState('');
+  const [errorField, setErrorField] = useState(null); // Track which field has error: 'username' or 'password'
+  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [focusedInput, setFocusedInput] = useState(null);
+
+  // Clear error when user types
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    // Clear error and error field highlight on any input change
+    if (error) {
+      setError('');
+      setErrorField(null);
+    }
+  };
+
+  // Get user-friendly error message and determine which field to highlight
+  const getErrorInfo = (errorType) => {
+    switch (errorType) {
+      case 'username_not_found':
+        return { message: 'Username not found', field: 'username' };
+      case 'incorrect_password':
+        return { message: 'Incorrect password', field: 'password' };
+      default:
+        return { message: errorType || 'Login failed. Please try again.', field: null };
+    }
+  };
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.12,
+        delayChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20, filter: 'blur(8px)' },
+    visible: { 
+      opacity: 1, 
+      y: 0,
+      filter: 'blur(0px)',
+      transition: {
+        type: 'spring',
+        stiffness: 300,
+        damping: 25
+      }
+    }
+  };
+
+  const fadeVariants = {
+    hidden: { opacity: 0, scale: 0.95 },
+    visible: { 
+      opacity: 1, 
+      scale: 1,
+      transition: {
+        type: 'spring',
+        stiffness: 400,
+        damping: 30
+      }
+    }
+  };
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError('');
+    setErrorField(null);
+    setIsLoading(true);
+
+    try {
+      // Pass rememberMe to login function
+      const result = await login(formData.username, formData.password);
+      
+      if (result && result.success) {
+        navigate('/dashboard');
+      } else if (result && result.error) {
+        // Get specific error message and field to highlight
+        const errorInfo = getErrorInfo(result.error);
+        setError(errorInfo.message);
+        setErrorField(errorInfo.field);
+        // Clear password field on error
+        setFormData(prev => ({ ...prev, password: '' }));
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      const errorInfo = getErrorInfo(err.message);
+      setError(errorInfo.message);
+      setErrorField(errorInfo.field);
+      setFormData(prev => ({ ...prev, password: '' }));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="h-screen w-full flex relative font-sans bg-neutral-950 overflow-hidden safe-all" style={{ height: '100dvh' }}>
+      {/* Unified Background Elements */}
+      <div className="fixed inset-0 w-full h-full pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] sm:w-[40%] h-[40%] bg-indigo-500/30 rounded-full mix-blend-screen filter blur-[80px] sm:blur-[100px] animate-blob"></div>
+        <div className="absolute top-[20%] right-[-10%] w-[50%] sm:w-[40%] h-[40%] bg-purple-500/30 rounded-full mix-blend-screen filter blur-[80px] sm:blur-[100px] animate-blob animation-delay-2000"></div>
+        <div className="absolute bottom-[-10%] left-[20%] w-[50%] sm:w-[40%] h-[40%] bg-pink-500/30 rounded-full mix-blend-screen filter blur-[80px] sm:blur-[100px] animate-blob animation-delay-4000"></div>
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-soft-light"></div>
+      </div>
+
+      <AnimatePresence mode="wait">
+        {!showLogin ? (
+          /* Landing Page - Features View */
+          <motion.div
+            key="landing"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20, scale: 0.98 }}
+            transition={{ 
+              duration: 0.5,
+              type: 'spring',
+              stiffness: 300,
+              damping: 30
+            }}
+            className="w-full flex flex-col items-center justify-center p-3 sm:p-4 md:p-6 lg:p-8 relative z-10"
+          >
+            <div className="max-w-4xl w-full space-y-4 sm:space-y-6 md:space-y-8">
+              {/* Logo and Header */}
+              <motion.div
+                initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
+                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                transition={{ delay: 0.1, duration: 0.7, type: 'spring', stiffness: 200, damping: 25 }}
+                className="text-center space-y-2 sm:space-y-3 md:space-y-4"
+              >
+                <motion.div 
+                  className="flex justify-center mb-3 sm:mb-4"
+                  initial={{ scale: 0.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ 
+                    delay: 0.2, 
+                    type: 'spring', 
+                    stiffness: 300, 
+                    damping: 20 
+                  }}
+                >
+                  <motion.img 
+                    src={logoWhite} 
+                    alt="Organization Logo" 
+                    className="w-16 h-16 xs:w-20 xs:h-20 sm:w-24 sm:h-24 lg:w-32 lg:h-32 object-contain"
+                    whileHover={{ 
+                      scale: 1.1, 
+                      rotate: [0, -5, 5, 0],
+                      transition: { duration: 0.5 }
+                    }}
+                  />
+                </motion.div>
+                <motion.h1 
+                  className="text-2xl xs:text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight tracking-tight px-2"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3, type: 'spring', stiffness: 200, damping: 25 }}
+                >
+                  Secure & Intelligent <br/>
+                  <motion.span 
+                    className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.5, type: 'spring', stiffness: 200 }}
+                  >
+                    Campus Dost Management
+                  </motion.span>
+                </motion.h1>
+                <motion.p 
+                  className="text-neutral-400 text-xs sm:text-sm md:text-base lg:text-lg leading-relaxed max-w-2xl mx-auto px-3 sm:px-4"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.6, duration: 0.5 }}
+                >
+                  A unified platform to manage your AI's knowledge base, monitor interactions, and fine-tune system behavior with comprehensive document and instruction controls.
+                </motion.p>
+              </motion.div>
+
+              {/* CTA Button */}
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.7, type: 'spring', stiffness: 200, damping: 25 }}
+                className="flex justify-center px-3 sm:px-4"
+              >
+                <motion.button
+                  onClick={() => setShowLogin(true)}
+                  className="group relative px-5 sm:px-6 md:px-8 py-2.5 sm:py-3 md:py-4 bg-white hover:bg-neutral-100 text-neutral-900 font-bold rounded-lg sm:rounded-xl shadow-2xl hover:shadow-3xl transition-all duration-300 flex items-center gap-2 sm:gap-3 text-sm sm:text-base md:text-lg w-full sm:w-auto justify-center overflow-hidden"
+                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                >
+                  <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
+                  <span>Access Dashboard</span>
+                  <motion.span
+                    className="inline-block"
+                    initial={{ x: 0 }}
+                    whileHover={{ x: 5 }}
+                  >
+                    <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
+                  </motion.span>
+                </motion.button>
+              </motion.div>
+            </div>
+          </motion.div>
+        ) : (
+          /* Login View */
+          <motion.div
+            key="login"
+            initial={{ opacity: 0, scale: 0.92, y: 30 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.92, y: -30 }}
+            transition={{ 
+              duration: 0.5,
+              type: 'spring',
+              stiffness: 300,
+              damping: 28
+            }}
+            className="w-full flex items-center justify-center p-3 sm:p-4 md:p-6 lg:p-8 relative z-10"
+          >
+            <motion.div
+              initial={{ y: 20, filter: 'blur(10px)' }}
+              animate={{ y: 0, filter: 'blur(0px)' }}
+              transition={{ delay: 0.15, duration: 0.5, type: 'spring', stiffness: 200, damping: 25 }}
+              className="w-full max-w-[95%] sm:max-w-md lg:max-w-lg space-y-4 sm:space-y-6 bg-white/5 backdrop-blur-xl p-4 sm:p-6 lg:p-10 rounded-2xl sm:rounded-3xl border border-white/10 shadow-2xl relative"
+            >
+              {/* Back Button */}
+              <motion.button
+                onClick={() => setShowLogin(false)}
+                className="absolute top-4 sm:top-6 left-4 sm:left-6 text-neutral-400 hover:text-white transition-colors p-1.5 sm:p-2 hover:bg-white/10 rounded-lg touch-target"
+                whileHover={{ scale: 1.1, x: -2 }}
+                whileTap={{ scale: 0.9 }}
+              >
+                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </motion.button>
+
+              {/* Header */}
+              <motion.div 
+                className="flex flex-col items-center text-center pt-6 sm:pt-8"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.25, type: 'spring', stiffness: 200, damping: 25 }}
+              >
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white tracking-tight mb-1 sm:mb-2">Welcome back</h1>
+                <p className="text-xs sm:text-sm lg:text-base text-neutral-400">Please enter your details to sign in.</p>
+              </motion.div>
+
+              {/* Form */}
+              <motion.form 
+                onSubmit={handleLogin} 
+                className="space-y-4 sm:space-y-6"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.35, type: 'spring', stiffness: 200, damping: 25 }}
+              >
+                <div className="space-y-3 sm:space-y-5">
+                  {/* Username Input */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="text-xs sm:text-sm font-semibold text-neutral-300 ml-1">Username</label>
+                    <div className="relative group">
+                      <div className={`absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none transition-colors duration-200 ${
+                        errorField === 'username' ? 'text-red-400' : focusedInput === 'username' ? 'text-primary-400' : 'text-neutral-500'
+                      }`}>
+                        <User className="w-4 h-4 sm:w-5 sm:h-5" />
+                      </div>
+                      <input
+                        type="text"
+                        value={formData.username}
+                        onChange={(e) => handleInputChange('username', e.target.value)}
+                        onFocus={() => setFocusedInput('username')}
+                        onBlur={() => setFocusedInput(null)}
+                        className={`w-full pl-10 sm:pl-11 pr-3 sm:pr-4 py-3 sm:py-3.5 bg-white/5 border rounded-lg sm:rounded-xl outline-none text-white placeholder-neutral-500 transition-all duration-200 text-sm sm:text-base ${
+                          errorField === 'username'
+                            ? 'border-red-500/70 bg-red-500/10 shadow-[0_0_0_4px_rgba(239,68,68,0.15)]'
+                            : focusedInput === 'username' 
+                              ? 'border-primary-500/50 bg-white/10 shadow-[0_0_0_4px_rgba(var(--primary-500-rgb),0.1)]' 
+                              : 'border-white/10 hover:border-white/20 hover:bg-white/10'
+                        }`}
+                        placeholder="Enter your username"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Password Input */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="text-xs sm:text-sm font-semibold text-neutral-300 ml-1">Password</label>
+                    <div className="relative group">
+                      <div className={`absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none transition-colors duration-200 ${
+                        errorField === 'password' ? 'text-red-400' : focusedInput === 'password' ? 'text-primary-400' : 'text-neutral-500'
+                      }`}>
+                        <Lock className="w-4 h-4 sm:w-5 sm:h-5" />
+                      </div>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={formData.password}
+                        onChange={(e) => handleInputChange('password', e.target.value)}
+                        onFocus={() => setFocusedInput('password')}
+                        onBlur={() => setFocusedInput(null)}
+                        className={`w-full pl-10 sm:pl-11 pr-11 sm:pr-12 py-3 sm:py-3.5 bg-white/5 border rounded-lg sm:rounded-xl outline-none text-white placeholder-neutral-500 transition-all duration-200 text-sm sm:text-base ${
+                          errorField === 'password'
+                            ? 'border-red-500/70 bg-red-500/10 shadow-[0_0_0_4px_rgba(239,68,68,0.15)]'
+                            : focusedInput === 'password' 
+                              ? 'border-primary-500/50 bg-white/10 shadow-[0_0_0_4px_rgba(var(--primary-500-rgb),0.1)]' 
+                              : 'border-white/10 hover:border-white/20 hover:bg-white/10'
+                        }`}
+                        placeholder="Enter your password"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 sm:pr-4 flex items-center text-neutral-500 hover:text-neutral-300 transition-colors touch-target"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4 sm:w-5 sm:h-5" /> : <Eye className="w-4 h-4 sm:w-5 sm:h-5" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Submit Button */}
+                <div className="space-y-2 sm:space-y-3">
+                  {/* Inline Error Message */}
+                  <AnimatePresence mode="wait">
+                    {error && (
+                      <motion.p
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -5 }}
+                        transition={{ duration: 0.2 }}
+                        className="text-xs sm:text-sm font-medium text-red-400 text-center"
+                      >
+                        {error}
+                      </motion.p>
+                    )}
+                  </AnimatePresence>
+                  
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full py-3 sm:py-4 bg-white hover:bg-neutral-200 text-neutral-900 font-bold rounded-lg sm:rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 group text-sm sm:text-base"
+                  >
+                    {isLoading ? (
+                      <>
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                        >
+                          <Loader2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                        </motion.div>
+                        <span>Signing in...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Sign In</span>
+                        <motion.span
+                          initial={{ x: 0 }}
+                          whileHover={{ x: 4 }}
+                        >
+                          <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                        </motion.span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </motion.form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}

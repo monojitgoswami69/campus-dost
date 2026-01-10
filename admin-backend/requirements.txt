@@ -1,0 +1,37 @@
+# Web Framework & Server
+fastapi
+uvicorn[standard]
+python-multipart
+
+# HTTP & Network
+httpx
+requests
+aiohttp
+aiofiles
+
+# Authentication & Security
+PyJWT
+python-dotenv
+
+# Rate Limiting
+slowapi
+
+# Firebase & Firestore
+google-cloud-firestore
+
+# Google APIs & AI
+google-genai
+
+# Data Processing
+numpy
+pdfminer.six
+
+# File Type Detection
+python-magic
+python-magic-bin;sys_platform=="win32"
+
+# Storage Integrations
+dropbox
+
+# Data Validation
+pydantic

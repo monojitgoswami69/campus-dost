@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { useChat } from '../context/ChatContext';
-import avatarImg from '../assets/avatar.png';
+import logoImg from '../assets/logo.png';
 
 function WelcomeScreen() {
     const { getTranslations } = useLanguage();
@@ -22,8 +22,8 @@ function WelcomeScreen() {
     return (
         <div className="welcome-message">
             <img 
-                src={avatarImg} 
-                alt="Campus Dost Avatar" 
+                src={logoImg} 
+                alt="Campus Dost Logo" 
                 className="welcome-avatar" 
                 onError={(e) => { e.target.style.display = 'none'; }}
             />
