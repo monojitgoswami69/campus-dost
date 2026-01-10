@@ -12,14 +12,23 @@ import {
   Loader2,
   MessageSquare,
   BookOpen,
-  Users
+  Users,
+  Mail
 } from 'lucide-react';
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, register } = useAuth();
 
-  const [formData, setFormData] = useState({ username: '', password: '' });
+  const [mode, setMode] = useState('login'); // 'login' or 'register'
+  const [formData, setFormData] = useState({ 
+    email: '',
+    username: '', 
+    password: '',
+    organisationId: '',
+    organisationName: '',
+    agreeToTerms: false
+  });
   const [error, setError] = useState('');
   const [errorField, setErrorField] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -33,11 +42,28 @@ export default function LoginPage() {
     }
   };
 
+  const switchMode = (newMode) => {
+    setMode(newMode);
+    setFormData({ email: '', username: '', password: '', organisationId: '', organisationName: '', agreeToTerms: false });
+    setError('');
+    setErrorField(null);
+    setShowPassword(false);
+  };
+
   const getErrorInfo = (errorType) => {
-    switch (errorType) {
-      case 'username_not_found': return { message: 'Account not found', field: 'username' };
-      case 'incorrect_password': return { message: 'Invalid credentials', field: 'password' };
-      default: return { message: errorType || 'Authentication failed', field: null };
+    if (mode === 'login') {
+      switch (errorType) {
+        case 'username_not_found': return { message: 'Account not found', field: 'username' };
+        case 'incorrect_password': return { message: 'Invalid credentials', field: 'password' };
+        default: return { message: errorType || 'Authentication failed', field: null };
+      }
+    } else {
+      switch (errorType) {
+        case 'username_exists': return { message: 'Username already taken', field: 'username' };
+        case 'email_exists': return { message: 'Email already registered', field: 'email' };
+        case 'weak_password': return { message: 'Password too weak', field: 'password' };
+        default: return { message: errorType || 'Registration failed', field: null };
+      }
     }
   };
 
@@ -66,6 +92,38 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setError('');
+    setErrorField(null);
+
+    if (!formData.agreeToTerms) {
+      setError('Please accept the Terms of Service and Privacy Policy');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const result = await register(formData.email, formData.username, formData.password);
+      if (result && result.success) {
+        navigate('/dashboard');
+      } else if (result && result.error) {
+        const errorInfo = getErrorInfo(result.error);
+        setError(errorInfo.message);
+        setErrorField(errorInfo.field);
+      }
+    } catch (err) {
+      const errorInfo = getErrorInfo(err.message);
+      setError(errorInfo.message);
+      setErrorField(errorInfo.field);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSubmit = mode === 'login' ? handleLogin : handleRegister;
 
   return (
     <div className="min-h-screen w-full flex bg-neutral-950 text-neutral-100">
@@ -165,15 +223,108 @@ export default function LoginPage() {
           </div>
 
           <div className="space-y-2 text-center lg:text-left">
-            <h1 className="text-3xl font-bold text-white">
-              Welcome back
-            </h1>
-            <p className="text-neutral-500">
-              Sign in to access the admin dashboard
-            </p>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={mode}
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                transition={{ duration: 0.3 }}
+              >
+                <h1 className="text-3xl font-bold text-white">
+                  {mode === 'login' ? 'Welcome back' : 'Create your account'}
+                </h1>
+                <p className="text-neutral-500 mt-3">
+                  {mode === 'login' 
+                    ? 'Sign in to access the admin dashboard' 
+                    : 'Join the smartest campus community today'}
+                </p>
+              </motion.div>
+            </AnimatePresence>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-6 mt-8">
+          <AnimatePresence mode="wait">
+            <motion.form
+              key={mode}
+              onSubmit={handleSubmit}
+              initial={{ opacity: 0, x: mode === 'login' ? -20 : 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: mode === 'login' ? 20 : -20 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="space-y-6 mt-8"
+            >
+            {/* Email - Only for Register */}
+            {mode === 'register' && (
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider ml-1">Email Address</label>
+                <div className="relative group">
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => handleInputChange('email', e.target.value)}
+                    className={`block w-full rounded-xl border-2 bg-neutral-900/50 px-4 py-3.5 pl-11 text-sm text-white transition-colors focus:outline-none focus:ring-0 ${
+                      errorField === 'email' 
+                        ? 'border-red-500/50 focus:border-red-500' 
+                        : 'border-neutral-800 hover:border-neutral-700 focus:border-indigo-500'
+                    }`}
+                    placeholder="student@university.edu"
+                    required
+                  />
+                  <Mail className={`absolute left-4 top-3.5 h-5 w-5 transition-colors ${
+                    errorField === 'email' ? 'text-red-400' : 'text-neutral-500 group-focus-within:text-indigo-400'
+                  }`} />
+                </div>
+              </div>
+            )}
+
+            {/* Organisation ID - Only for Register */}
+            {mode === 'register' && (
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider ml-1">Organisation ID</label>
+                <div className="relative group">
+                  <input
+                    type="text"
+                    value={formData.organisationId}
+                    onChange={(e) => handleInputChange('organisationId', e.target.value)}
+                    className={`block w-full rounded-xl border-2 bg-neutral-900/50 px-4 py-3.5 pl-11 text-sm text-white transition-colors focus:outline-none focus:ring-0 ${
+                      errorField === 'organisationId' 
+                        ? 'border-red-500/50 focus:border-red-500' 
+                        : 'border-neutral-800 hover:border-neutral-700 focus:border-indigo-500'
+                    }`}
+                    placeholder="ORG-12345"
+                    required
+                  />
+                  <Users className={`absolute left-4 top-3.5 h-5 w-5 transition-colors ${
+                    errorField === 'organisationId' ? 'text-red-400' : 'text-neutral-500 group-focus-within:text-indigo-400'
+                  }`} />
+                </div>
+              </div>
+            )}
+
+            {/* Organisation Name - Only for Register */}
+            {mode === 'register' && (
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider ml-1">Organisation Name</label>
+                <div className="relative group">
+                  <input
+                    type="text"
+                    value={formData.organisationName}
+                    onChange={(e) => handleInputChange('organisationName', e.target.value)}
+                    className={`block w-full rounded-xl border-2 bg-neutral-900/50 px-4 py-3.5 pl-11 text-sm text-white transition-colors focus:outline-none focus:ring-0 ${
+                      errorField === 'organisationName' 
+                        ? 'border-red-500/50 focus:border-red-500' 
+                        : 'border-neutral-800 hover:border-neutral-700 focus:border-indigo-500'
+                    }`}
+                    placeholder="University of Excellence"
+                    required
+                  />
+                  <BookOpen className={`absolute left-4 top-3.5 h-5 w-5 transition-colors ${
+                    errorField === 'organisationName' ? 'text-red-400' : 'text-neutral-500 group-focus-within:text-indigo-400'
+                  }`} />
+                </div>
+              </div>
+            )}
+
             {/* Username */}
             <div className="space-y-2">
               <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider ml-1">Username</label>
@@ -187,7 +338,8 @@ export default function LoginPage() {
                       ? 'border-red-500/50 focus:border-red-500' 
                       : 'border-neutral-800 hover:border-neutral-700 focus:border-indigo-500'
                   }`}
-                  placeholder="admin@organization.com"
+                  placeholder={mode === 'login' ? 'admin@organization.com' : 'campus_hero'}
+                  required
                 />
                 <User className={`absolute left-4 top-3.5 h-5 w-5 transition-colors ${
                   errorField === 'username' ? 'text-red-400' : 'text-neutral-500 group-focus-within:text-indigo-400'
@@ -199,7 +351,9 @@ export default function LoginPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider ml-1">Password</label>
-                <a href="#" className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">Forgot password?</a>
+                {mode === 'login' && (
+                  <a href="#" className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">Forgot password?</a>
+                )}
               </div>
               <div className="relative group">
                 <input
@@ -212,6 +366,7 @@ export default function LoginPage() {
                       : 'border-neutral-800 hover:border-neutral-700 focus:border-indigo-500'
                   }`}
                   placeholder="••••••••••••"
+                  required
                 />
                 <Lock className={`absolute left-4 top-3.5 h-5 w-5 transition-colors ${
                   errorField === 'password' ? 'text-red-400' : 'text-neutral-500 group-focus-within:text-indigo-400'
@@ -225,6 +380,34 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
+
+            {/* Terms & Conditions - Only for Register */}
+            {mode === 'register' && (
+              <div className="flex items-start">
+                <div className="flex items-center h-5 mt-0.5">
+                  <input
+                    id="terms"
+                    name="terms"
+                    type="checkbox"
+                    checked={formData.agreeToTerms}
+                    onChange={(e) => handleInputChange('agreeToTerms', e.target.checked)}
+                    className="w-4 h-4 rounded border-neutral-700 bg-neutral-900/50 text-white focus:ring-2 focus:ring-indigo-500 focus:ring-offset-0"
+                  />
+                </div>
+                <div className="ml-3 text-sm">
+                  <label htmlFor="terms" className="text-neutral-500 text-xs">
+                    I agree to the{' '}
+                    <a href="#" className="font-bold text-neutral-400 hover:text-white hover:underline transition-colors">
+                      Terms of Service
+                    </a>{' '}
+                    and{' '}
+                    <a href="#" className="font-bold text-neutral-400 hover:text-white hover:underline transition-colors">
+                      Privacy Policy
+                    </a>
+                  </label>
+                </div>
+              </div>
+            )}
 
             {/* Error Message */}
             <div className="h-6">
@@ -254,13 +437,43 @@ export default function LoginPage() {
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
                   <>
-                    <span>Sign In to Console</span>
+                    <span>{mode === 'login' ? 'Sign In to Console' : 'Create Account'}</span>
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </>
                 )}
               </div>
             </button>
-          </form>
+          </motion.form>
+          </AnimatePresence>
+
+          {/* Mode Switch Link */}
+          <div className="mt-6 text-center">
+            <p className="text-sm text-neutral-500">
+              {mode === 'login' ? (
+                <>
+                  Don't have an account?{' '}
+                  <button
+                    type="button"
+                    onClick={() => switchMode('register')}
+                    className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
+                  >
+                    Sign up
+                  </button>
+                </>
+              ) : (
+                <>
+                  Already have an account?{' '}
+                  <button
+                    type="button"
+                    onClick={() => switchMode('login')}
+                    className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
+                  >
+                    Sign in
+                  </button>
+                </>
+              )}
+            </p>
+          </div>
 
           {/* Footer for Login Side */}
           <div className="mt-8 text-center">

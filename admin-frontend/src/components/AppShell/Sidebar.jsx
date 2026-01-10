@@ -12,7 +12,8 @@ import {
   Type, 
   Settings, 
   LogOut, 
-  X
+  X,
+  BarChart3
 } from 'lucide-react';
 
 const navItems = [
@@ -45,6 +46,18 @@ const navItems = [
     label: 'Add Text',
     path: '/add-text',
     icon: Type
+  },
+  {
+    id: 'query-analytics',
+    label: 'Query Analytics',
+    path: '/query-analytics',
+    icon: BarChart3
+  },
+  {
+    id: 'bot-settings',
+    label: 'Bot Settings',
+    path: '/bot-settings',
+    icon: Settings
   },
   {
     id: 'system-instructions',
