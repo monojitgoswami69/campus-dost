@@ -27,6 +27,20 @@ const navItems = [
     roles: ['superuser', 'admin', 'assistant'] // All roles
   },
   {
+    id: 'query-analytics',
+    label: 'Query Analytics',
+    path: '/query-analytics',
+    icon: BarChart3,
+    roles: ['superuser', 'admin', 'assistant'] // All roles can view analytics
+  },
+  {
+    id: 'unsolved-queries',
+    label: 'Unsolved Queries',
+    path: '/unsolved-queries',
+    icon: HelpCircle,
+    roles: ['superuser', 'admin', 'assistant'] // Assistant can answer queries
+  },
+  {
     id: 'knowledge-base',
     label: 'Knowledge Base',
     path: '/knowledge-base',
@@ -55,31 +69,17 @@ const navItems = [
     roles: ['superuser', 'admin'] // Not for assistant
   },
   {
-    id: 'query-analytics',
-    label: 'Query Analytics',
-    path: '/query-analytics',
-    icon: BarChart3,
-    roles: ['superuser', 'admin', 'assistant'] // All roles can view analytics
-  },
-  {
-    id: 'unsolved-queries',
-    label: 'Unsolved Queries',
-    path: '/unsolved-queries',
-    icon: HelpCircle,
-    roles: ['superuser', 'admin', 'assistant'] // Assistant can answer queries
+    id: 'system-instructions',
+    label: 'System Instructions',
+    path: '/system-instructions',
+    icon: FileText,
+    roles: ['superuser', 'admin'] // Not for assistant
   },
   {
     id: 'bot-settings',
     label: 'Bot Settings',
     path: '/bot-settings',
     icon: Settings,
-    roles: ['superuser', 'admin'] // Not for assistant
-  },
-  {
-    id: 'system-instructions',
-    label: 'System Instructions',
-    path: '/system-instructions',
-    icon: FileText,
     roles: ['superuser', 'admin'] // Not for assistant
   }
 ];

@@ -502,11 +502,10 @@ export default function LoginPage() {
               className="flex items-center gap-3 sm:gap-4 mb-8 sm:mb-12 lg:mb-16"
             >
               <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl blur-lg opacity-30 animate-pulse" />
                 <img 
                   src={logoImg} 
                   alt="Campus Dost Logo" 
-                  className="relative w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 object-contain"
+                  className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 object-contain"
                 />
               </div>
               <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600">

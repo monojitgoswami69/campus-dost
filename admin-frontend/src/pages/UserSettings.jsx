@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Mail, Lock, Eye, EyeOff, Save, Check, Shield, Users, Plus, Trash2, RefreshCw, UserPlus, Building2, Crown, Loader2, CheckCircle2, XCircle, HelpCircle } from 'lucide-react';
+import { User, Mail, Lock, Eye, EyeOff, Save, Check, Shield, Users, Plus, Trash2, RefreshCw, UserPlus, Building2, Crown, Loader2, CheckCircle2, XCircle, HelpCircle, Construction } from 'lucide-react';
 import { Button } from '../components/UI/Button';
 import { Input } from '../components/UI/Input';
 import { Modal } from '../components/UI/Modal';
@@ -784,7 +784,7 @@ export default function UserSettings() {
                   <motion.button
                     type="button"
                     onClick={() => setShowEmail(!showEmail)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-neutral-400 hover:text-primary-600 transition-colors"
+                    className="absolute right-3 top-[11px] p-1.5 text-neutral-400 hover:text-primary-600 transition-colors"
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
                   >
@@ -881,18 +881,26 @@ export default function UserSettings() {
 
         {/* Security and Authentication Section */}
         <motion.div 
-          className="bg-white rounded-lg sm:rounded-xl border-2 border-neutral-300/60 shadow-md overflow-hidden"
+          className="bg-white rounded-lg sm:rounded-xl border-2 border-neutral-300/60 shadow-md overflow-hidden relative"
           variants={cardVariants}
         >
-          <div className="p-3 sm:p-4 md:p-6 border-b border-neutral-200">
-            <h3 className="text-base sm:text-lg md:text-xl font-bold text-neutral-900 flex items-center gap-2">
-              <Shield className="w-5 h-5 text-primary-600" />
-              Security and Authentication
-            </h3>
-            <p className="hidden sm:block text-xs sm:text-sm text-neutral-600 mt-0.5 sm:mt-1">
-              Manage your password and security settings
-            </p>
+          {/* Coming Soon Badge */}
+          <div className="absolute top-2 right-2 sm:top-3 sm:right-3 z-10 flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 bg-amber-100 border border-amber-300 rounded-full shadow-sm">
+            <Construction className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-600" />
+            <span className="text-[10px] sm:text-xs font-medium text-amber-700">Coming Soon</span>
           </div>
+
+          {/* Grayed out content */}
+          <div className="opacity-50 pointer-events-none select-none grayscale-[30%]">
+            <div className="p-3 sm:p-4 md:p-6 border-b border-neutral-200">
+              <h3 className="text-base sm:text-lg md:text-xl font-bold text-neutral-900 flex items-center gap-2">
+                <Shield className="w-5 h-5 text-primary-600" />
+                Security and Authentication
+              </h3>
+              <p className="hidden sm:block text-xs sm:text-sm text-neutral-600 mt-0.5 sm:mt-1">
+                Manage your password and security settings
+              </p>
+            </div>
 
           <div className="p-3 sm:p-4 md:p-6 space-y-4">
             {/* Change Password */}
@@ -961,7 +969,7 @@ export default function UserSettings() {
                             <button
                               type="button"
                               onClick={() => togglePasswordVisibility('current')}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 transition-colors"
+                              className="absolute right-3 top-[11px] text-neutral-400 hover:text-neutral-600 transition-colors"
                               tabIndex={-1}
                             >
                               {showPasswords.current ? (
@@ -1011,7 +1019,7 @@ export default function UserSettings() {
                             <button
                               type="button"
                               onClick={() => togglePasswordVisibility('new')}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 transition-colors"
+                              className="absolute right-3 top-[11px] text-neutral-400 hover:text-neutral-600 transition-colors"
                               tabIndex={-1}
                             >
                               {showPasswords.new ? (
@@ -1047,7 +1055,7 @@ export default function UserSettings() {
                             <button
                               type="button"
                               onClick={() => togglePasswordVisibility('confirm')}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 transition-colors"
+                              className="absolute right-3 top-[11px] text-neutral-400 hover:text-neutral-600 transition-colors"
                               tabIndex={-1}
                             >
                               {showPasswords.confirm ? (
@@ -1141,6 +1149,7 @@ export default function UserSettings() {
               </motion.div>
             )}
           </div>
+          </div>
         </motion.div>
 
         {/* Team Management Section - Super Admin Only */}
@@ -1172,30 +1181,6 @@ export default function UserSettings() {
                   <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
                   Add Team Member
                 </Button>
-                <motion.button
-                  type="submit"
-                  disabled={isLoading}
-                  className="px-3 py-1.5 sm:px-6 sm:py-2.5 text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 hover:from-primary-700 hover:via-primary-800 hover:to-primary-900 rounded-md sm:rounded-lg shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 sm:gap-2"
-                  whileHover={{ scale: isLoading ? 1 : 1.02 }}
-                  whileTap={{ scale: isLoading ? 1 : 0.98 }}
-                >
-                  {isLoading ? (
-                    <>
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                      >
-                        <Save className="w-3 h-3 sm:w-4 sm:h-4" />
-                      </motion.div>
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-3 h-3 sm:w-4 sm:h-4" />
-                      Save
-                    </>
-                  )}
-                </motion.button>
               </div>
 
               {/* Add Team Member Modal */}
@@ -1238,7 +1223,7 @@ export default function UserSettings() {
                                   ? 'border-emerald-300 focus:border-emerald-500'
                                   : 'border-neutral-300 focus:border-primary-500'
                           } focus:outline-none`}
-                          style={{ paddingLeft: `${Math.max((user?.org_id?.length || 0) * 9 + 20, 80)}px` }}
+                          style={{ paddingLeft: `${(user?.org_id?.length || 0) * 8 + 16}px` }}
                         />
                         <div className="absolute right-3 top-1/2 -translate-y-1/2">
                           {isCheckingUsername && (
@@ -1317,7 +1302,7 @@ export default function UserSettings() {
                         <button
                           type="button"
                           onClick={() => setShowNewMemberPassword(!showNewMemberPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 transition-colors"
+                          className="absolute right-3 top-[11px] text-neutral-400 hover:text-neutral-600 transition-colors"
                           tabIndex={-1}
                         >
                           {showNewMemberPassword ? (
@@ -1331,10 +1316,8 @@ export default function UserSettings() {
 
                     {/* Role Selection Dropdown */}
                     <div>
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <label htmlFor="newRole" className="block text-sm font-medium text-neutral-700">
-                          Role
-                        </label>
+                      <label htmlFor="newRole" className="text-sm font-medium text-neutral-700 mb-2 flex items-center gap-1.5">
+                        Role
                         <div className="relative">
                           <button
                             type="button"
@@ -1365,17 +1348,24 @@ export default function UserSettings() {
                             </motion.div>
                           )}
                         </div>
+                      </label>
+                      <div className="relative">
+                        <select
+                          id="newRole"
+                          value={newMember.role}
+                          onChange={(e) => handleNewMemberChange('role', e.target.value)}
+                          disabled={isLoading}
+                          className="w-full px-3 py-2 pr-10 border border-neutral-200 rounded-lg bg-gradient-to-br from-white to-neutral-50 text-neutral-900 text-[14px] font-medium appearance-none cursor-pointer hover:border-primary-300 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-0 focus:border-transparent focus:from-primary-50 focus:to-white transition-all duration-200 disabled:bg-neutral-100 disabled:cursor-not-allowed disabled:text-neutral-500 disabled:opacity-60"
+                        >
+                          <option value="admin" className="py-3 text-sm font-medium">⭐ Admin (Full access)</option>
+                          <option value="assistant" className="py-3 text-sm font-medium">👤 Assistant (View-only)</option>
+                        </select>
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                          <svg className="w-4 h-4 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
                       </div>
-                      <select
-                        id="newRole"
-                        value={newMember.role}
-                        onChange={(e) => handleNewMemberChange('role', e.target.value)}
-                        disabled={isLoading}
-                        className="w-full px-3 py-2.5 border-2 border-neutral-300 rounded-lg bg-white text-neutral-900 focus:outline-none focus:border-primary-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <option value="admin">⭐ Admin (Full access)</option>
-                        <option value="assistant">👤 Assistant (View-only)</option>
-                      </select>
                     </div>
                   </div>
 
@@ -1488,7 +1478,7 @@ export default function UserSettings() {
                         <button
                           type="button"
                           onClick={() => setShowNewMemberPassword(!showNewMemberPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 transition-colors"
+                          className="absolute right-3 top-[11px] text-neutral-400 hover:text-neutral-600 transition-colors"
                           tabIndex={-1}
                         >
                           {showNewMemberPassword ? (
@@ -1588,34 +1578,22 @@ export default function UserSettings() {
                         exit={{ opacity: 0, x: -20 }}
                         className="p-4 bg-white rounded-xl border border-neutral-200 shadow-sm"
                       >
-                        <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2.5 flex-1 min-w-0 overflow-x-auto">
-                              <div className="flex items-center gap-1.5 flex-shrink-0">
-                                <User className="w-3.5 h-3.5 text-neutral-400 flex-shrink-0" />
-                                <span className="text-xs font-semibold text-neutral-900">{member.username}</span>
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="flex flex-col gap-2 flex-1 min-w-0">
+                              <div className="flex items-center gap-2.5 flex-wrap">
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                  <User className="w-3.5 h-3.5 text-neutral-400 flex-shrink-0" />
+                                  <span className="text-xs font-semibold text-neutral-900">{member.username}</span>
+                                </div>
+                                <span className="px-1.5 py-0.5 text-xs font-medium rounded-full bg-primary-100 text-primary-700 capitalize flex-shrink-0">
+                                  {member.role}
+                                </span>
                               </div>
-                              {/* Removed full name and email from team member details */}
-                              <div className="text-xs text-neutral-600 flex-shrink-0">
-                                <span className="text-neutral-500">Password:</span> {visiblePasswords[member.id] ? member.password : '••••••••'}
-                              </div>
-                              <span className="px-1.5 py-0.5 text-xs font-medium rounded-full bg-primary-100 text-primary-700 capitalize flex-shrink-0">
-                                {member.role}
-                              </span>
+                              {member.fullName && (
+                                <p className="text-xs text-neutral-600 pl-5">{member.fullName}</p>
+                              )}
                             </div>
                             <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-                              <button
-                                type="button"
-                                onClick={() => toggleMemberPasswordVisibility(member.id)}
-                                disabled={isLoading}
-                                className="p-1 sm:p-2 text-neutral-600 hover:bg-neutral-50 rounded-md sm:rounded-lg transition-colors"
-                                aria-label={visiblePasswords[member.id] ? "Hide password" : "Show password"}
-                              >
-                                {visiblePasswords[member.id] ? (
-                                  <EyeOff className="w-3 h-3 sm:w-4 sm:h-4" />
-                                ) : (
-                                  <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
-                                )}
-                              </button>
                               <button
                                 type="button"
                                 onClick={() => handleEditTeamMember(member)}
