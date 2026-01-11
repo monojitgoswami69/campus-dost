@@ -4,7 +4,9 @@ import { renderMarkdown } from '../utils/markdown';
 
 const ChatContext = createContext();
 
-const BACKEND_URL = "https://campus-dost-backend.vercel.app";
+// Use environment variables with localhost defaults for development
+const BACKEND_URL = import.meta.env.VITE_CHATBOT_BACKEND_URL || "http://localhost:8080";
+const ADMIN_BACKEND_URL = import.meta.env.VITE_ADMIN_BACKEND_URL || "http://localhost:8000";
 
 export function ChatProvider({ children }) {
     const [messages, setMessages] = useState([]);
@@ -12,6 +14,12 @@ export function ChatProvider({ children }) {
     const [welcomeDismissed, setWelcomeDismissed] = useState(false);
     const [isTyping, setIsTyping] = useState(false);
     const [streamingMessageId, setStreamingMessageId] = useState(null);
+    const [orgId, setOrgId] = useState(() => {
+        // Load from localStorage or default to 'default'
+        return localStorage.getItem('chatbot_org_id') || 'default';
+    });
+    const [showOrgSetup, setShowOrgSetup] = useState(false);
+    const [organizations, setOrganizations] = useState([]);
     const sessionIdRef = useRef(generateSessionId());
 
     // Start session on mount
@@ -64,8 +72,41 @@ export function ChatProvider({ children }) {
         });
     }, []);
 
+    const openOrgSetup = useCallback(async () => {
+        // Fetch available organizations
+        try {
+            const response = await fetch(`${ADMIN_BACKEND_URL}/api/v1/organizations`);
+            if (response.ok) {
+                const data = await response.json();
+                setOrganizations(data.organizations || []);
+            }
+        } catch (error) {
+            console.error('Error fetching organizations:', error);
+        }
+        setShowOrgSetup(true);
+    }, []);
+
+    const closeOrgSetup = useCallback(() => {
+        setShowOrgSetup(false);
+    }, []);
+
+    const selectOrganization = useCallback((selectedOrgId) => {
+        setOrgId(selectedOrgId);
+        localStorage.setItem('chatbot_org_id', selectedOrgId);
+        setShowOrgSetup(false);
+        
+        // Add system message to chat
+        addMessage('system', `Organization switched to: ${selectedOrgId.toUpperCase()}`, { isSystem: true });
+    }, []);
+
     const sendMessage = useCallback(async (messageText) => {
         if (!messageText.trim() || isWaitingForResponse) return;
+
+        // Check if message is the /setup command
+        if (messageText.trim() === '/setup') {
+            await openOrgSetup();
+            return;
+        }
 
         const proceed = async () => {
             setIsWaitingForResponse(true);
@@ -103,7 +144,8 @@ export function ChatProvider({ children }) {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         message: messageText,
-                        session_id: sessionIdRef.current
+                        session_id: sessionIdRef.current,
+                        org_id: orgId
                     })
                 });
 
@@ -155,7 +197,7 @@ export function ChatProvider({ children }) {
             await dismissWelcome();
         }
         proceed();
-    }, [isWaitingForResponse, welcomeDismissed, addMessage, updateMessage, dismissWelcome]);
+    }, [isWaitingForResponse, welcomeDismissed, addMessage, updateMessage, dismissWelcome, orgId, openOrgSetup]);
 
     return (
         <ChatContext.Provider value={{
@@ -165,7 +207,12 @@ export function ChatProvider({ children }) {
             isTyping,
             streamingMessageId,
             sendMessage,
-            dismissWelcome
+            dismissWelcome,
+            orgId,
+            showOrgSetup,
+            organizations,
+            closeOrgSetup,
+            selectOrganization
         }}>
             {children}
         </ChatContext.Provider>

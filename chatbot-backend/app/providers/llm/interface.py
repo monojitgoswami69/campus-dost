@@ -34,6 +34,7 @@ class LLMProviderInterface(ABC):
         messages: List[ChatMessage],
         temperature: float = 0.3,
         max_tokens: int = 4096,
+        json_mode: bool = False,
     ) -> AsyncIterator[str]:
         """
         Generate a streaming chat completion.
@@ -42,6 +43,7 @@ class LLMProviderInterface(ABC):
             messages: List of ChatMessage objects (system, user, assistant)
             temperature: Generation temperature (0.0-1.0)
             max_tokens: Maximum tokens to generate
+            json_mode: If True, force JSON output format (provider-dependent)
             
         Yields:
             str: Content chunks as they are generated
@@ -56,6 +58,7 @@ class LLMProviderInterface(ABC):
         messages: List[ChatMessage],
         temperature: float = 0.3,
         max_tokens: int = 4096,
+        json_mode: bool = False,
     ) -> str:
         """
         Generate a non-streaming chat completion.
@@ -67,6 +70,7 @@ class LLMProviderInterface(ABC):
             messages: List of ChatMessage objects
             temperature: Generation temperature (0.0-1.0)
             max_tokens: Maximum tokens to generate
+            json_mode: If True, force JSON output format (provider-dependent)
             
         Returns:
             str: Complete generated response
@@ -75,7 +79,7 @@ class LLMProviderInterface(ABC):
             LLMError: On generation failure
         """
         chunks = []
-        async for chunk in self.generate_stream(messages, temperature, max_tokens):
+        async for chunk in self.generate_stream(messages, temperature, max_tokens, json_mode):
             chunks.append(chunk)
         return "".join(chunks)
     

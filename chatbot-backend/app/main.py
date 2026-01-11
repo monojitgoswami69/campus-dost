@@ -39,6 +39,7 @@ from app.exceptions import ChatbotException
 from app.models import ErrorResponse
 from app.routes import chat as chat_routes
 from app.routes import health
+from app.routes import session
 from app.state import AppState
 
 logger = get_logger("app.main")
@@ -245,6 +246,9 @@ def configure_routes(application: FastAPI) -> None:
     # Health check routes
     application.include_router(health.router)
     
+    # Session management routes
+    application.include_router(session.router)
+    
     # Chat endpoint with rate limiting
     limiter = application.state.limiter
     rate_limit = settings.RATE_LIMIT
@@ -253,15 +257,22 @@ def configure_routes(application: FastAPI) -> None:
     @application.post(
         "/chat",
         tags=["Chat"],
-        summary="Chat with the AI assistant",
+        summary="Chat with the AI assistant (Streaming)",
         description=(
             "Send a message and receive a streaming response. "
-            "Supports conversation history and RAG context retrieval."
+            "Supports conversation history, RAG context retrieval, and intelligent handoff. "
+            "The LLM decides if it can answer or needs human handoff. "
+            "Check X-Handoff-Required header for handoff status."
         ),
         responses={
             200: {
                 "description": "Streaming text response",
                 "content": {"text/plain": {"example": "Hello! How can I help you today?"}},
+                "headers": {
+                    "X-Handoff-Required": {"description": "Whether human handoff is needed", "schema": {"type": "string"}},
+                    "X-Handoff-Id": {"description": "Handoff request ID if created", "schema": {"type": "string"}},
+                    "X-Confidence": {"description": "LLM confidence score (0-100)", "schema": {"type": "string"}},
+                },
             },
             400: {"description": "Invalid request"},
             429: {"description": "Rate limit exceeded"},
@@ -274,11 +285,39 @@ def configure_routes(application: FastAPI) -> None:
         state: AppState = chat_routes.Depends(chat_routes.get_app_state),
     ):
         """
-        Chat endpoint with rate limiting.
+        Chat endpoint with rate limiting and hybrid handoff support.
         
         This endpoint streams the AI response as plain text chunks.
+        The LLM decides if it can answer from context or needs human handoff.
         """
         return await chat_routes.chat_endpoint(request, chat_request, state)
+
+    @limiter.limit(rate_limit)
+    @application.post(
+        "/chat/json",
+        tags=["Chat"],
+        summary="Chat with the AI assistant (JSON Response)",
+        description=(
+            "Send a message and receive a JSON response with handoff information. "
+            "Non-streaming alternative for clients that need handoff info in response body."
+        ),
+        response_model=chat_routes.ChatResponse,
+        responses={
+            200: {"description": "JSON response with message and handoff info"},
+            400: {"description": "Invalid request"},
+            429: {"description": "Rate limit exceeded"},
+            503: {"description": "Service unavailable"},
+        },
+    )
+    async def chat_json_endpoint(
+        request: Request,
+        chat_request: chat_routes.ChatRequest,
+        state: AppState = chat_routes.Depends(chat_routes.get_app_state),
+    ):
+        """
+        Non-streaming chat endpoint with full handoff info in response body.
+        """
+        return await chat_routes.chat_json_endpoint(request, chat_request, state)
 
 
 # =============================================================================

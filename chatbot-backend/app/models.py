@@ -164,6 +164,19 @@ class ChatRequest(BaseModel):
         max_length=settings.MAX_HISTORY_MESSAGES * 2,
         description="Conversation history (user/model message pairs)",
     )
+    org_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=50,
+        description="Organization ID for multi-tenant filtering (required)",
+        examples=["cse", "math", "default"],
+    )
+    session_id: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=100,
+        description="Session ID for conversation tracking (optional)",
+    )
 
     @field_validator("message")
     @classmethod
@@ -329,6 +342,66 @@ class PingResponse(BaseModel):
     status: str = Field(
         default="ok",
         description="Ping status",
+    )
+
+
+# =============================================================================
+# Handoff Models
+# =============================================================================
+
+class HandoffDecision(BaseModel):
+    """
+    LLM response structure for handoff decisions.
+    
+    The LLM returns this JSON structure to indicate whether it can
+    answer the question or needs to hand off to a human.
+    """
+    
+    model_config = ConfigDict(frozen=True)
+    
+    answer: str = Field(
+        ...,
+        description="The answer or apology message",
+    )
+    handoff_required: bool = Field(
+        default=False,
+        description="Whether human handoff is needed",
+    )
+    confidence: int = Field(
+        default=50,
+        ge=0,
+        le=100,
+        description="Confidence score (0-100)",
+    )
+
+
+class ChatResponse(BaseModel):
+    """
+    Non-streaming chat response with handoff information.
+    
+    Used for hybrid gatekeeper mode where we need to know
+    if handoff is required before streaming.
+    """
+    
+    model_config = ConfigDict(frozen=False)
+    
+    message: str = Field(
+        ...,
+        description="The bot's response message",
+    )
+    handoff_required: bool = Field(
+        default=False,
+        description="Whether this query was handed off to a human",
+    )
+    handoff_id: str | None = Field(
+        default=None,
+        description="Handoff request ID if handoff was created",
+    )
+    confidence: int = Field(
+        default=50,
+        ge=0,
+        le=100,
+        description="LLM confidence in the answer",
     )
 
 

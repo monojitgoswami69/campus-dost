@@ -1,7 +1,7 @@
 """
 Firestore implementation for metrics storage.
 
-Uses native AsyncClient for non-blocking I/O - no threadpool needed.
+Uses firebase-admin SDK with AsyncClient for non-blocking I/O.
 
 MULTI-TENANCY: All operations are scoped to org_id for data isolation.
 Each organization has their own metrics document.
@@ -10,8 +10,9 @@ from datetime import datetime, timezone, timedelta
 from typing import List
 import asyncio
 
-from google.cloud import firestore
+from google.cloud.firestore import AsyncClient
 from google.cloud.firestore_v1 import Query
+from google.cloud.firestore_v1.transforms import Increment
 
 from ....config import settings, logger
 from ..firestore_init import get_db
@@ -27,7 +28,7 @@ class FirestoreMetricsProvider(MetricsProviderInterface):
     """
     
     @property
-    def db(self) -> firestore.AsyncClient:
+    def db(self) -> AsyncClient:
         return get_db()
 
     def _get_metrics_doc_id(self, org_id: str) -> str:
@@ -88,16 +89,16 @@ class FirestoreMetricsProvider(MetricsProviderInterface):
         total_delta = active_delta + archived_delta
         
         if active_delta != 0:
-            updates["active_documents"] = firestore.Increment(active_delta)
+            updates["active_documents"] = Increment(active_delta)
         
         if archived_delta != 0:
-            updates["archived_documents"] = firestore.Increment(archived_delta)
+            updates["archived_documents"] = Increment(archived_delta)
             
         if total_delta != 0:
-            updates["total_documents"] = firestore.Increment(total_delta)
+            updates["total_documents"] = Increment(total_delta)
             
         if vectors_delta != 0:
-            updates["total_vectors"] = firestore.Increment(vectors_delta)
+            updates["total_vectors"] = Increment(vectors_delta)
             
         if len(updates) > 1:  # More than just org_id
             updates["last_updated"] = datetime.now(timezone.utc)
@@ -115,7 +116,7 @@ class FirestoreMetricsProvider(MetricsProviderInterface):
         await doc_ref.set({
             "org_id": org_id,
             "date": date_str,
-            "hits": firestore.Increment(1)
+            "hits": Increment(1)
         }, merge=True)
 
     async def get_weekly_metrics(self, org_id: str, days: int = 7) -> List[dict]:
@@ -165,7 +166,7 @@ class FirestoreMetricsProvider(MetricsProviderInterface):
             )
         else:
             await self.db.collection(settings.METRICS_COLLECTION).document(doc_id).set(
-                {"org_id": org_id, "total_size_bytes": firestore.Increment(size_delta)},
+                {"org_id": org_id, "total_size_bytes": Increment(size_delta)},
                 merge=True
             )
 

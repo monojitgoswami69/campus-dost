@@ -1,7 +1,7 @@
 """
 Firestore implementation for vector storage.
 
-Uses native AsyncClient for non-blocking I/O - no threadpool needed.
+Uses firebase-admin SDK with AsyncClient for non-blocking I/O.
 
 MULTI-TENANCY: All operations are scoped to org_id for data isolation.
 Each organization can only access their own vectors.
@@ -9,7 +9,7 @@ Each organization can only access their own vectors.
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from google.cloud import firestore
+from google.cloud.firestore import AsyncClient
 from google.cloud.firestore_v1.vector import Vector
 
 from ....config import settings, logger
@@ -26,7 +26,7 @@ class FirestoreVectorStorage(VectorStorageInterface):
     """
     
     @property
-    def db(self) -> firestore.AsyncClient:
+    def db(self) -> AsyncClient:
         return get_db()
 
     async def store_vectors(self, org_id: str, doc_id: str, vector_data: List[dict]) -> int:

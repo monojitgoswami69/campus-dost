@@ -154,6 +154,7 @@ class RAGService:
         self,
         query: str,
         history: list | None = None,
+        org_id: str | None = None,
     ) -> list[RAGResult]:
         """
         Get relevant context for a user query.
@@ -161,6 +162,7 @@ class RAGService:
         Args:
             query: User query string
             history: Optional conversation history (for future context-aware retrieval)
+            org_id: Organization ID for multi-tenant filtering (optional)
             
         Returns:
             List of RAGResult objects sorted by relevance
@@ -187,12 +189,13 @@ class RAGService:
             logger.error("Embedding generation failed: %s", e)
             return []
         
-        # Search vector store
+        # Search vector store with org_id filter
         try:
             search_results = await self._state.database_provider.search_similar(
                 embedding=embedding,
                 top_k=self._config.top_k,
                 similarity_threshold=self._config.similarity_threshold,
+                org_id=org_id,
             )
         except Exception as e:
             logger.error("Vector search failed: %s", e)
@@ -203,9 +206,10 @@ class RAGService:
         
         if results:
             logger.info(
-                "RAG retrieved %d results (top score: %.3f)",
+                "RAG retrieved %d results (top score: %.3f) for org_id=%s",
                 len(results),
                 results[0].score if results else 0,
+                org_id or "default",
             )
         
         return results
@@ -252,6 +256,7 @@ async def get_rag_context(
     query: str,
     state: "AppState",
     history: list | None = None,
+    org_id: str | None = None,
 ) -> list[RAGResult]:
     """
     Get RAG context for a user query.
@@ -264,9 +269,10 @@ async def get_rag_context(
         query: User query string
         state: Application state with providers
         history: Optional conversation history
+        org_id: Organization ID for multi-tenant filtering (optional)
         
     Returns:
         List of RAGResult objects
     """
     service = RAGService(state)
-    return await service.get_context(query, history)
+    return await service.get_context(query, history, org_id)

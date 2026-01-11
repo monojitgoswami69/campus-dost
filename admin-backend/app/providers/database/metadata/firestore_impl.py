@@ -1,7 +1,7 @@
 """
 Firestore implementation for document metadata storage.
 
-Uses native AsyncClient for non-blocking I/O - no threadpool needed.
+Uses firebase-admin SDK with AsyncClient for non-blocking I/O.
 
 MULTI-TENANCY: All operations are scoped to org_id for data isolation.
 Each organization can only access their own documents.
@@ -10,7 +10,7 @@ from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 import asyncio
 
-from google.cloud import firestore
+from google.cloud.firestore import AsyncClient
 
 from ....config import settings, logger
 from ..firestore_init import get_db
@@ -26,7 +26,7 @@ class FirestoreMetadataProvider(MetadataProviderInterface):
     """
     
     @property
-    def db(self) -> firestore.AsyncClient:
+    def db(self) -> AsyncClient:
         return get_db()
 
     def generate_id(self) -> str:

@@ -1,7 +1,7 @@
 """
 Firestore implementation for activity logging.
 
-Uses native AsyncClient for non-blocking I/O - no threadpool needed.
+Uses firebase-admin SDK with AsyncClient for non-blocking I/O.
 
 MULTI-TENANCY: All operations are scoped to org_id for data isolation.
 Each organization can only access their own activity logs.
@@ -9,7 +9,7 @@ Each organization can only access their own activity logs.
 from datetime import datetime, timezone
 from typing import List
 
-from google.cloud import firestore
+from google.cloud.firestore import AsyncClient
 from google.cloud.firestore_v1 import Query
 from google.api_core.exceptions import FailedPrecondition
 
@@ -30,7 +30,7 @@ class FirestoreActivityProvider(ActivityProviderInterface):
     """
     
     @property
-    def db(self) -> firestore.AsyncClient:
+    def db(self) -> AsyncClient:
         return get_db()
 
     async def log_activity(self, org_id: str, action: str, actor: str, resource_type: str = None,

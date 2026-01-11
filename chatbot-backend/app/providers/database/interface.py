@@ -45,6 +45,7 @@ class DatabaseProviderInterface(ABC):
         embedding: List[float],
         top_k: int = 5,
         similarity_threshold: float = 0.0,
+        org_id: str | None = None,
     ) -> List[VectorSearchResult]:
         """
         Search for similar documents by vector embedding.
@@ -53,6 +54,7 @@ class DatabaseProviderInterface(ABC):
             embedding: Query embedding vector
             top_k: Maximum number of results to return
             similarity_threshold: Minimum similarity score (0.0-1.0)
+            org_id: Organization ID for multi-tenant filtering (optional)
             
         Returns:
             List of VectorSearchResult objects, sorted by score (descending)
@@ -73,3 +75,17 @@ class DatabaseProviderInterface(ABC):
     async def close(self) -> None:
         """Close the database connection."""
         pass
+    
+    async def get_system_instructions(self, org_id: str) -> str | None:
+        """
+        Get system instructions for an organization from Firestore.
+        
+        Args:
+            org_id: Organization identifier
+            
+        Returns:
+            System instruction content string or None if not found
+        """
+        # Default implementation returns None
+        # Override in Firestore provider
+        return None

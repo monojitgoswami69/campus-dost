@@ -67,17 +67,26 @@ class GroqLLMProvider(LLMProviderInterface):
         messages: List[dict],
         temperature: float,
         max_tokens: int,
+        json_mode: bool = False,
     ):
         """Make a single API request (used by retry logic)."""
         client = self._get_client()
+        
+        # Build request kwargs
+        request_kwargs = {
+            "model": settings.GROQ_MODEL_ID,
+            "messages": messages,
+            "temperature": temperature,
+            "stream": True,
+            "max_tokens": max_tokens,
+        }
+        
+        # Add JSON mode if requested (Groq supports this like OpenAI)
+        if json_mode:
+            request_kwargs["response_format"] = {"type": "json_object"}
+        
         return await asyncio.wait_for(
-            client.chat.completions.create(
-                model=settings.GROQ_MODEL_ID,
-                messages=messages,
-                temperature=temperature,
-                stream=True,
-                max_tokens=max_tokens,
-            ),
+            client.chat.completions.create(**request_kwargs),
             timeout=settings.CHAT_COMPLETION_TIMEOUT_SECONDS,
         )
     
@@ -86,8 +95,16 @@ class GroqLLMProvider(LLMProviderInterface):
         messages: List[ChatMessage],
         temperature: float = 0.3,
         max_tokens: int = 4096,
+        json_mode: bool = False,
     ) -> AsyncIterator[str]:
-        """Generate streaming chat completion using Groq with retry logic."""
+        """Generate streaming chat completion using Groq with retry logic.
+        
+        Args:
+            messages: List of ChatMessage objects
+            temperature: Generation temperature
+            max_tokens: Maximum tokens to generate
+            json_mode: If True, force JSON output format
+        """
         # Convert to Groq message format
         groq_messages = [
             {"role": msg.role, "content": msg.content}
@@ -102,6 +119,7 @@ class GroqLLMProvider(LLMProviderInterface):
                     groq_messages,
                     temperature,
                     max_tokens,
+                    json_mode,
                 )
                 
                 async for chunk in stream:

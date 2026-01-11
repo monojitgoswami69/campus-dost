@@ -68,8 +68,16 @@ class GeminiLLMProvider(LLMProviderInterface):
         messages: List[ChatMessage],
         temperature: float = 0.3,
         max_tokens: int = 4096,
+        json_mode: bool = False,
     ) -> AsyncIterator[str]:
-        """Generate streaming chat completion using Gemini with retry logic."""
+        """Generate streaming chat completion using Gemini with retry logic.
+        
+        Args:
+            messages: List of ChatMessage objects
+            temperature: Generation temperature
+            max_tokens: Maximum tokens to generate
+            json_mode: If True, force JSON output format
+        """
         # Extract system instruction if present
         system_instruction = None
         chat_messages = []
@@ -88,11 +96,17 @@ class GeminiLLMProvider(LLMProviderInterface):
                 )
         
         # Build generation config
-        gen_config = types.GenerateContentConfig(
-            temperature=temperature,
-            max_output_tokens=max_tokens,
-            system_instruction=system_instruction,
-        )
+        config_params = {
+            "temperature": temperature,
+            "max_output_tokens": max_tokens,
+            "system_instruction": system_instruction,
+        }
+        
+        # Add JSON mode if requested (Gemini supports this via response_mime_type)
+        if json_mode:
+            config_params["response_mime_type"] = "application/json"
+        
+        gen_config = types.GenerateContentConfig(**config_params)
         
         last_error: Exception | None = None
         

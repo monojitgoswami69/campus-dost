@@ -6,7 +6,7 @@ import { LoadingSpinner } from '../components/UI/LoadingSpinner';
 import { Badge } from '../components/UI/Badge';
 import { Modal } from '../components/UI/Modal';
 import { cn } from '../utils/helpers';
-import { Send, X, Search, RefreshCw, ArrowUp, ArrowDown, ChevronDown, Check } from 'lucide-react';
+import { Send, X, Search, RefreshCw, ArrowUp, ArrowDown, ChevronDown, Check, AlertCircle, MessageSquare, Info } from 'lucide-react';
 
 const pageVariants = {
   initial: { opacity: 0 },
@@ -35,19 +35,21 @@ const cardVariants = {
 
 export default function UnsolvedQueries() {
   const [loading, setLoading] = useState(true);
-  const [unsolvedQueries, setUnsolvedQueries] = useState([]);
+  const [handoffs, setHandoffs] = useState([]);
+  const [stats, setStats] = useState({ total: 0, pending: 0, answered: 0, dismissed: 0 });
   const [showAnswerModal, setShowAnswerModal] = useState(false);
-  const [selectedQuery, setSelectedQuery] = useState(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedHandoff, setSelectedHandoff] = useState(null);
   const [answer, setAnswer] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   
   // Search and Filter states
-  const [unsolvedQuerySearch, setUnsolvedQuerySearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all'); // all, pending, solved
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); // all, pending, answered, dismissed
   
   // Sorting states
-  const [unsolvedQueriesSort, setUnsolvedQueriesSort] = useState({ field: 'date', direction: 'desc' });
+  const [sortConfig, setSortConfig] = useState({ field: 'date', direction: 'desc' });
   
   // Dropdown state
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
@@ -65,93 +67,42 @@ export default function UnsolvedQueries() {
       setLoading(true);
     }
     try {
-      // Mock data - replace with actual API call
-      const mockQueries = [
-        {
-          id: 1,
-          question: "Can I change my major in the third year?",
-          userEmail: "student123@example.com",
-          date: "Jan 10, 2026",
-          status: "pending",
-          rawDate: new Date('2026-01-10')
-        },
-        {
-          id: 2,
-          question: "Are pets allowed in the dorms?",
-          userEmail: "another.student@example.com",
-          date: "Jan 9, 2026",
-          status: "solved",
-          rawDate: new Date('2026-01-09')
-        },
-        {
-          id: 3,
-          question: "Specific question about research funding for project X",
-          userEmail: "research.scholar@example.com",
-          date: "Jan 8, 2026",
-          status: "pending",
-          rawDate: new Date('2026-01-08')
-        },
-        {
-          id: 4,
-          question: "How to access the student portal?",
-          userEmail: "newstudent@example.com",
-          date: "Jan 7, 2026",
-          status: "pending",
-          rawDate: new Date('2026-01-07')
-        },
-        {
-          id: 5,
-          question: "Transcript request process",
-          userEmail: "graduate@example.com",
-          date: "Jan 6, 2026",
-          status: "solved",
-          rawDate: new Date('2026-01-06')
-        },
-        {
-          id: 6,
-          question: "How do I apply for on-campus housing for next semester?",
-          userEmail: "housing.seeker@example.com",
-          date: "Jan 5, 2026",
-          status: "pending",
-          rawDate: new Date('2026-01-05')
-        },
-        {
-          id: 7,
-          question: "What are the requirements for graduating with honors?",
-          userEmail: "topstudent@example.com",
-          date: "Jan 4, 2026",
-          status: "solved",
-          rawDate: new Date('2026-01-04')
-        },
-        {
-          id: 8,
-          question: "Can I take summer courses at another university?",
-          userEmail: "summer.student@example.com",
-          date: "Jan 3, 2026",
-          status: "pending",
-          rawDate: new Date('2026-01-03')
-        },
-        {
-          id: 9,
-          question: "How do I report a maintenance issue in my dorm room?",
-          userEmail: "maintenance.need@example.com",
-          date: "Jan 2, 2026",
-          status: "solved",
-          rawDate: new Date('2026-01-02')
-        },
-        {
-          id: 10,
-          question: "Is there a student discount for public transportation?",
-          userEmail: "commuter@example.com",
-          date: "Jan 1, 2026",
-          status: "pending",
-          rawDate: new Date('2026-01-01')
-        }
-      ];
+      // Fetch handoffs and stats from API
+      const [handoffsResponse, statsResponse] = await Promise.all([
+        api.handoffs.list({ limit: 500 }),
+        api.handoffs.getStats(),
+      ]);
 
-      setUnsolvedQueries(mockQueries);
+      if (handoffsResponse.status === 'success') {
+        // Transform handoffs to match expected format
+        const transformedHandoffs = handoffsResponse.handoffs.map(h => ({
+          id: h.id,
+          question: h.query,
+          llmResponse: h.llm_response || '',
+          confidence: h.confidence || 0,
+          similarityScore: h.similarity_score || 0,
+          contextChunks: h.context_chunks || [],
+          sessionId: h.session_id || '',
+          date: formatDate(h.created_at),
+          rawDate: new Date(h.created_at),
+          status: h.status,
+          answer: h.answer,
+          answeredBy: h.answered_by,
+          answeredAt: h.answered_at ? formatDate(h.answered_at) : null,
+        }));
+        setHandoffs(transformedHandoffs);
+      }
+
+      if (statsResponse.status === 'success') {
+        setStats(statsResponse.stats);
+      }
+
+      if (showRefreshToast) {
+        showSuccess('Data refreshed successfully');
+      }
     } catch (err) {
-      showError('Failed to load data');
+      console.error('Failed to load handoffs:', err);
+      showError('Failed to load handoff requests');
     } finally {
       if (showRefreshToast) {
         setRefreshing(false);
@@ -161,11 +112,31 @@ export default function UnsolvedQueries() {
     }
   };
 
-  const handleAnswer = (queryId) => {
-    const query = unsolvedQueries.find(q => q.id === queryId);
-    if (query) {
-      setSelectedQuery(query);
+  const formatDate = (isoString) => {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const handleAnswer = (handoffId) => {
+    const handoff = handoffs.find(h => h.id === handoffId);
+    if (handoff) {
+      setSelectedHandoff(handoff);
       setShowAnswerModal(true);
+    }
+  };
+
+  const handleViewDetails = (handoffId) => {
+    const handoff = handoffs.find(h => h.id === handoffId);
+    if (handoff) {
+      setSelectedHandoff(handoff);
+      setShowDetailsModal(true);
     }
   };
 
@@ -177,25 +148,57 @@ export default function UnsolvedQueries() {
 
     setSubmitting(true);
     try {
-      await api.answerQuery(selectedQuery.id, { answer: answer.trim() });
+      await api.handoffs.answer(selectedHandoff.id, answer.trim());
       showSuccess('Answer submitted successfully');
       
-      // Update the query status locally
-      setUnsolvedQueries(prev => 
-        prev.map(q => q.id === selectedQuery.id ? { ...q, status: 'solved' } : q)
+      // Update the handoff status locally
+      setHandoffs(prev => 
+        prev.map(h => h.id === selectedHandoff.id 
+          ? { ...h, status: 'answered', answer: answer.trim() } 
+          : h
+        )
       );
+      
+      // Update stats
+      setStats(prev => ({
+        ...prev,
+        pending: Math.max(0, prev.pending - 1),
+        answered: prev.answered + 1,
+      }));
       
       handleCloseModal();
     } catch (err) {
-      showError(err.response?.data?.error || 'Failed to submit answer');
+      showError(err.response?.data?.message || 'Failed to submit answer');
     } finally {
       setSubmitting(false);
     }
   };
 
+  const handleDismiss = async (handoffId) => {
+    try {
+      await api.handoffs.dismiss(handoffId);
+      showSuccess('Handoff dismissed');
+      
+      // Update locally
+      setHandoffs(prev => 
+        prev.map(h => h.id === handoffId ? { ...h, status: 'dismissed' } : h)
+      );
+      
+      // Update stats
+      setStats(prev => ({
+        ...prev,
+        pending: Math.max(0, prev.pending - 1),
+        dismissed: prev.dismissed + 1,
+      }));
+    } catch (err) {
+      showError('Failed to dismiss handoff');
+    }
+  };
+
   const handleCloseModal = () => {
     setShowAnswerModal(false);
-    setSelectedQuery(null);
+    setShowDetailsModal(false);
+    setSelectedHandoff(null);
     setAnswer('');
   };
 
@@ -206,45 +209,51 @@ export default function UnsolvedQueries() {
   const statusOptions = [
     { value: 'all', label: 'All Status', color: 'bg-neutral-100 text-neutral-700' },
     { value: 'pending', label: 'Pending', color: 'bg-red-50 text-red-700' },
-    { value: 'solved', label: 'Solved', color: 'bg-green-50 text-green-700' }
+    { value: 'answered', label: 'Answered', color: 'bg-green-50 text-green-700' },
+    { value: 'dismissed', label: 'Dismissed', color: 'bg-neutral-50 text-neutral-500' }
   ];
 
   const selectedStatusOption = statusOptions.find(opt => opt.value === statusFilter) || statusOptions[0];
 
   // Filtering and searching
-  const filteredUnsolvedQueries = unsolvedQueries.filter(query => {
-    const matchesSearch = query.question.toLowerCase().includes(unsolvedQuerySearch.toLowerCase()) ||
-                         query.userEmail.toLowerCase().includes(unsolvedQuerySearch.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || query.status === statusFilter;
+  const filteredHandoffs = handoffs.filter(handoff => {
+    const matchesSearch = handoff.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         (handoff.llmResponse && handoff.llmResponse.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesStatus = statusFilter === 'all' || handoff.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
-  // Sorting
-  const sortedUnsolvedQueries = [...filteredUnsolvedQueries].sort((a, b) => {
-    const { field, direction } = unsolvedQueriesSort;
+  // Sorting - pending first, then by date
+  const sortedHandoffs = [...filteredHandoffs].sort((a, b) => {
+    // Always put pending first
+    if (a.status === 'pending' && b.status !== 'pending') return -1;
+    if (a.status !== 'pending' && b.status === 'pending') return 1;
+    
+    // Then sort by date
+    const { field, direction } = sortConfig;
     let comparison = 0;
     
     if (field === 'date') {
-      comparison = a.rawDate - b.rawDate;
-    } else if (field === 'status') {
-      comparison = a.status.localeCompare(b.status);
+      comparison = (a.rawDate || 0) - (b.rawDate || 0);
+    } else if (field === 'confidence') {
+      comparison = (a.confidence || 0) - (b.confidence || 0);
     }
     
     return direction === 'asc' ? comparison : -comparison;
   });
 
   const handleSort = (field) => {
-    setUnsolvedQueriesSort(prev => ({
+    setSortConfig(prev => ({
       field,
       direction: prev.field === field && prev.direction === 'desc' ? 'asc' : 'desc'
     }));
   };
 
   const SortIcon = ({ field }) => {
-    if (unsolvedQueriesSort.field !== field) {
+    if (sortConfig.field !== field) {
       return null;
     }
-    return unsolvedQueriesSort.direction === 'asc' 
+    return sortConfig.direction === 'asc' 
       ? <ArrowUp className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
       : <ArrowDown className="w-3 h-3 sm:w-3.5 sm:h-3.5" />;
   };
@@ -264,16 +273,60 @@ export default function UnsolvedQueries() {
       initial="initial"
       animate="animate"
     >
-      {/* Unsolved Queries Table */}
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-2">
+        <motion.div 
+          className="bg-white rounded-lg p-4 border-2 border-neutral-200 shadow-sm"
+          variants={cardVariants}
+        >
+          <div className="flex items-center gap-2 mb-1">
+            <MessageSquare className="w-4 h-4 text-neutral-500" />
+            <span className="text-xs font-medium text-neutral-500 uppercase">Total</span>
+          </div>
+          <p className="text-2xl font-bold text-neutral-900">{stats.total}</p>
+        </motion.div>
+        <motion.div 
+          className="bg-white rounded-lg p-4 border-2 border-red-200 shadow-sm"
+          variants={cardVariants}
+        >
+          <div className="flex items-center gap-2 mb-1">
+            <AlertCircle className="w-4 h-4 text-red-500" />
+            <span className="text-xs font-medium text-red-500 uppercase">Pending</span>
+          </div>
+          <p className="text-2xl font-bold text-red-600">{stats.pending}</p>
+        </motion.div>
+        <motion.div 
+          className="bg-white rounded-lg p-4 border-2 border-green-200 shadow-sm"
+          variants={cardVariants}
+        >
+          <div className="flex items-center gap-2 mb-1">
+            <Check className="w-4 h-4 text-green-500" />
+            <span className="text-xs font-medium text-green-500 uppercase">Answered</span>
+          </div>
+          <p className="text-2xl font-bold text-green-600">{stats.answered}</p>
+        </motion.div>
+        <motion.div 
+          className="bg-white rounded-lg p-4 border-2 border-neutral-200 shadow-sm"
+          variants={cardVariants}
+        >
+          <div className="flex items-center gap-2 mb-1">
+            <X className="w-4 h-4 text-neutral-400" />
+            <span className="text-xs font-medium text-neutral-400 uppercase">Dismissed</span>
+          </div>
+          <p className="text-2xl font-bold text-neutral-500">{stats.dismissed}</p>
+        </motion.div>
+      </div>
+
+      {/* Handoffs Table */}
       <motion.div 
         className="bg-white rounded-lg sm:rounded-xl border-2 border-neutral-300/60 shadow-md overflow-hidden flex-shrink-0 mb-4"
         variants={cardVariants}
       >
         <div className="p-3 sm:p-4 md:p-6 border-b border-neutral-200">
           <div className="mb-2 sm:mb-3">
-            <h2 className="text-base sm:text-lg md:text-xl font-bold text-neutral-900">Unsolved Queries</h2>
+            <h2 className="text-base sm:text-lg md:text-xl font-bold text-neutral-900">Human Handoff Requests</h2>
             <p className="text-xs sm:text-sm text-neutral-600 mt-0.5 sm:mt-1">
-              Queries that the bot failed to answer and required human intervention.
+              Queries that the chatbot couldn't answer from context and require human intervention.
             </p>
           </div>
           
@@ -283,11 +336,9 @@ export default function UnsolvedQueries() {
               <Search className="absolute left-2.5 sm:left-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-400" />
               <input
                 type="text"
-                placeholder="Search questions or emails..."
-                value={unsolvedQuerySearch}
-                onChange={(e) => {
-                  setUnsolvedQuerySearch(e.target.value);
-                }}
+                placeholder="Search questions..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2 border-2 border-neutral-300 rounded-lg focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-all text-xs sm:text-sm"
               />
             </div>
@@ -304,7 +355,7 @@ export default function UnsolvedQueries() {
                   {selectedStatusOption.label}
                 </span>
                 <span className="xs:hidden">
-                  {statusFilter === 'all' ? 'All' : statusFilter === 'pending' ? 'Pending' : 'Solved'}
+                  {statusFilter === 'all' ? 'All' : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}
                 </span>
                 <ChevronDown className={cn('w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-500 transition-transform', statusDropdownOpen && 'rotate-180')} />
               </motion.button>
@@ -312,13 +363,10 @@ export default function UnsolvedQueries() {
               <AnimatePresence>
                 {statusDropdownOpen && (
                   <>
-                    {/* Backdrop */}
                     <div 
                       className="fixed inset-0 z-10" 
                       onClick={() => setStatusDropdownOpen(false)}
                     />
-                    
-                    {/* Dropdown Menu */}
                     <motion.div
                       initial={{ opacity: 0, y: -10, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -342,9 +390,7 @@ export default function UnsolvedQueries() {
                           transition={{ delay: index * 0.05 }}
                           whileHover={{ x: 4 }}
                         >
-                          <span>
-                            {option.label}
-                          </span>
+                          <span>{option.label}</span>
                           {statusFilter === option.value && (
                             <Check className="w-4 h-4 text-primary-600" />
                           )}
@@ -373,14 +419,20 @@ export default function UnsolvedQueries() {
           <table className="w-full table-fixed">
             <thead className="bg-neutral-50 border-b border-neutral-200">
               <tr>
-                <th className="px-2 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 text-left text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase tracking-wider w-[35%] sm:w-[30%] md:w-[25%]">
+                <th className="px-2 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 text-left text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase tracking-wider w-[40%]">
                   Question
                 </th>
-                <th className="hidden sm:table-cell px-2 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 text-left text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase tracking-wider w-[25%] md:w-[30%]">
-                  User Email
+                <th 
+                  className="hidden md:table-cell px-2 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 text-center text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 transition-colors w-[12%]"
+                  onClick={() => handleSort('confidence')}
+                >
+                  <div className="flex items-center justify-center gap-0.5 sm:gap-1">
+                    Confidence
+                    <SortIcon field="confidence" />
+                  </div>
                 </th>
                 <th 
-                  className="hidden sm:table-cell px-2 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 text-center text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 transition-colors w-[15%] md:w-[15%]"
+                  className="hidden sm:table-cell px-2 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 text-center text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 transition-colors w-[15%]"
                   onClick={() => handleSort('date')}
                 >
                   <div className="flex items-center justify-center gap-0.5 sm:gap-1">
@@ -388,58 +440,93 @@ export default function UnsolvedQueries() {
                     <SortIcon field="date" />
                   </div>
                 </th>
-                <th className="px-2 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 text-center text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase tracking-wider w-[15%] sm:w-[12%] md:w-[12%]">
+                <th className="px-2 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 text-center text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase tracking-wider w-[12%]">
                   Status
                 </th>
-                <th className="px-2 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 text-center text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase tracking-wider w-[15%] sm:w-[13%] md:w-[13%]">
+                <th className="px-2 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 text-center text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase tracking-wider w-[18%]">
                   Actions
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200">
-              {sortedUnsolvedQueries.map((query, index) => (
+              {sortedHandoffs.map((handoff, index) => (
                 <motion.tr
-                  key={query.id}
+                  key={handoff.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
+                  transition={{ delay: index * 0.03 }}
                   className="hover:bg-neutral-50 transition-colors"
                 >
                   <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 text-xs sm:text-sm text-neutral-900 align-middle">
-                    <div className="truncate" title={query.question}>
-                      "{query.question}"
+                    <div className="truncate" title={handoff.question}>
+                      "{handoff.question}"
                     </div>
+                    {handoff.llmResponse && (
+                      <div className="text-[10px] sm:text-xs text-neutral-500 truncate mt-0.5" title={handoff.llmResponse}>
+                        Bot said: {handoff.llmResponse.substring(0, 60)}...
+                      </div>
+                    )}
                   </td>
-                  <td className="hidden sm:table-cell px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 text-xs sm:text-sm text-neutral-600 align-middle">
-                    <div className="truncate" title={query.userEmail}>
-                      {query.userEmail}
+                  <td className="hidden md:table-cell px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 text-center align-middle">
+                    <div className={cn(
+                      "text-xs sm:text-sm font-medium",
+                      handoff.confidence < 30 ? "text-red-600" : 
+                      handoff.confidence < 60 ? "text-yellow-600" : "text-green-600"
+                    )}>
+                      {handoff.confidence}%
                     </div>
                   </td>
                   <td className="hidden sm:table-cell px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 text-[10px] sm:text-xs md:text-sm text-neutral-500 whitespace-nowrap text-center align-middle">
-                    {query.date}
+                    {handoff.date}
                   </td>
                   <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 text-center align-middle">
-                    {query.status === 'pending' ? (
+                    {handoff.status === 'pending' ? (
                       <Badge variant="danger" animate>
                         <span className="text-[10px] sm:text-xs">Pending</span>
                       </Badge>
-                    ) : (
+                    ) : handoff.status === 'answered' ? (
                       <Badge variant="success" animate>
-                        <span className="text-[10px] sm:text-xs">Solved</span>
+                        <span className="text-[10px] sm:text-xs">Answered</span>
+                      </Badge>
+                    ) : (
+                      <Badge variant="neutral" animate>
+                        <span className="text-[10px] sm:text-xs">Dismissed</span>
                       </Badge>
                     )}
                   </td>
                   <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 text-center align-middle">
-                    {query.status === 'pending' && (
+                    <div className="flex items-center justify-center gap-1.5">
                       <motion.button
-                        onClick={() => handleAnswer(query.id)}
-                        className="px-2 sm:px-3 py-1 sm:py-1.5 bg-green-500 hover:bg-green-600 text-white text-[10px] sm:text-xs md:text-sm font-medium rounded-lg transition-colors shadow-sm"
+                        onClick={() => handleViewDetails(handoff.id)}
+                        className="px-2 py-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[10px] sm:text-xs font-medium rounded transition-colors"
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
+                        title="View Details"
                       >
-                        Answer
+                        <Info className="w-3.5 h-3.5" />
                       </motion.button>
-                    )}
+                      {handoff.status === 'pending' && (
+                        <>
+                          <motion.button
+                            onClick={() => handleAnswer(handoff.id)}
+                            className="px-2 sm:px-3 py-1 sm:py-1.5 bg-green-500 hover:bg-green-600 text-white text-[10px] sm:text-xs font-medium rounded-lg transition-colors shadow-sm"
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                          >
+                            Answer
+                          </motion.button>
+                          <motion.button
+                            onClick={() => handleDismiss(handoff.id)}
+                            className="px-2 py-1 bg-neutral-200 hover:bg-neutral-300 text-neutral-600 text-[10px] sm:text-xs font-medium rounded transition-colors"
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            title="Dismiss"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </motion.button>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </motion.tr>
               ))}
@@ -447,40 +534,77 @@ export default function UnsolvedQueries() {
           </table>
         </div>
 
-        {sortedUnsolvedQueries.length === 0 && (
+        {sortedHandoffs.length === 0 && (
           <div className="p-4 sm:p-6 md:p-8 text-center text-neutral-500 text-xs sm:text-sm">
-            {unsolvedQuerySearch || statusFilter !== 'all' ? 'No queries match your filters' : 'No unsolved queries'}
+            {searchQuery || statusFilter !== 'all' ? 'No handoffs match your filters' : 'No handoff requests yet'}
           </div>
         )}
       </motion.div>
 
       {/* Answer Modal */}
       <AnimatePresence>
-        {showAnswerModal && selectedQuery && (
+        {showAnswerModal && selectedHandoff && (
           <Modal
             isOpen={true}
             onClose={handleCloseModal}
-            title="Answer Query"
+            title="Answer Handoff Request"
             size="large"
           >
             <div className="space-y-3 sm:space-y-4">
               {/* Query Info */}
               <div className="bg-neutral-50 rounded-lg p-3 sm:p-4 border border-neutral-200">
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div>
-                    <label className="text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase">Question</label>
-                    <p className="text-xs sm:text-sm text-neutral-900 mt-1 break-words">"{selectedQuery.question}"</p>
+                    <label className="text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase">User's Question</label>
+                    <p className="text-xs sm:text-sm text-neutral-900 mt-1 break-words">"{selectedHandoff.query}"</p>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 pt-2 border-t border-neutral-200">
+                  
+                  {selectedHandoff.llm_response && (
+                    <div className="pt-2 border-t border-neutral-200">
+                      <label className="text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase">Bot's Response (Uncertain)</label>
+                      <p className="text-xs sm:text-sm text-neutral-600 mt-1 break-words bg-yellow-50 p-2 rounded border border-yellow-200">
+                        {selectedHandoff.llm_response}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4 pt-2 border-t border-neutral-200">
                     <div>
-                      <label className="text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase">User Email</label>
-                      <p className="text-xs sm:text-sm text-neutral-600 mt-1 break-all">{selectedQuery.userEmail}</p>
+                      <label className="text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase">Confidence</label>
+                      <p className={cn(
+                        "text-xs sm:text-sm font-medium mt-1",
+                        selectedHandoff.confidence < 30 ? "text-red-600" : 
+                        selectedHandoff.confidence < 60 ? "text-yellow-600" : "text-green-600"
+                      )}>
+                        {selectedHandoff.confidence}%
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase">Similarity Score</label>
+                      <p className="text-xs sm:text-sm text-neutral-600 mt-1">
+                        {(selectedHandoff.similarity_score * 100).toFixed(1)}%
+                      </p>
                     </div>
                     <div>
                       <label className="text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase">Date</label>
-                      <p className="text-xs sm:text-sm text-neutral-600 mt-1">{selectedQuery.date}</p>
+                      <p className="text-xs sm:text-sm text-neutral-600 mt-1">
+                        {new Date(selectedHandoff.created_at).toLocaleDateString()}
+                      </p>
                     </div>
                   </div>
+
+                  {selectedHandoff.context_chunks && selectedHandoff.context_chunks.length > 0 && (
+                    <div className="pt-2 border-t border-neutral-200">
+                      <label className="text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase">Context Used ({selectedHandoff.context_chunks.length} chunks)</label>
+                      <div className="mt-1 max-h-24 overflow-y-auto space-y-1">
+                        {selectedHandoff.context_chunks.slice(0, 3).map((chunk, i) => (
+                          <p key={i} className="text-[10px] sm:text-xs text-neutral-500 bg-neutral-100 p-1.5 rounded truncate">
+                            {chunk.substring(0, 150)}...
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -537,6 +661,114 @@ export default function UnsolvedQueries() {
                       <span>Submit Answer</span>
                     </>
                   )}
+                </motion.button>
+              </div>
+            </div>
+          </Modal>
+        )}
+      </AnimatePresence>
+
+      {/* Details Modal */}
+      <AnimatePresence>
+        {showDetailsModal && selectedHandoff && (
+          <Modal
+            isOpen={true}
+            onClose={handleCloseModal}
+            title="Handoff Request Details"
+            size="large"
+          >
+            <div className="space-y-3 sm:space-y-4">
+              <div className="bg-neutral-50 rounded-lg p-3 sm:p-4 border border-neutral-200">
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase">User's Question</label>
+                    <p className="text-xs sm:text-sm text-neutral-900 mt-1 break-words">"{selectedHandoff.query}"</p>
+                  </div>
+                  
+                  {selectedHandoff.llm_response && (
+                    <div className="pt-2 border-t border-neutral-200">
+                      <label className="text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase">Bot's Response</label>
+                      <p className="text-xs sm:text-sm text-neutral-600 mt-1 break-words bg-blue-50 p-2 rounded border border-blue-200">
+                        {selectedHandoff.llm_response}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 pt-2 border-t border-neutral-200">
+                    <div>
+                      <label className="text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase">Status</label>
+                      <div className="mt-1">
+                        {selectedHandoff.status === 'pending' ? (
+                          <Badge variant="danger"><span className="text-xs">Pending</span></Badge>
+                        ) : selectedHandoff.status === 'answered' ? (
+                          <Badge variant="success"><span className="text-xs">Answered</span></Badge>
+                        ) : (
+                          <Badge variant="neutral"><span className="text-xs">Dismissed</span></Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase">Confidence</label>
+                      <p className={cn(
+                        "text-xs sm:text-sm font-medium mt-1",
+                        selectedHandoff.confidence < 30 ? "text-red-600" : 
+                        selectedHandoff.confidence < 60 ? "text-yellow-600" : "text-green-600"
+                      )}>
+                        {selectedHandoff.confidence}%
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase">Similarity</label>
+                      <p className="text-xs sm:text-sm text-neutral-600 mt-1">
+                        {(selectedHandoff.similarity_score * 100).toFixed(1)}%
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase">Created</label>
+                      <p className="text-xs sm:text-sm text-neutral-600 mt-1">
+                        {new Date(selectedHandoff.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  {selectedHandoff.status === 'answered' && selectedHandoff.answer && (
+                    <div className="pt-2 border-t border-neutral-200">
+                      <label className="text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase">Human Answer</label>
+                      <p className="text-xs sm:text-sm text-neutral-900 mt-1 break-words bg-green-50 p-2 rounded border border-green-200">
+                        {selectedHandoff.answer}
+                      </p>
+                      {selectedHandoff.answered_by && (
+                        <p className="text-[10px] sm:text-xs text-neutral-500 mt-1">
+                          Answered by: {selectedHandoff.answered_by} on {new Date(selectedHandoff.answered_at).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {selectedHandoff.context_chunks && selectedHandoff.context_chunks.length > 0 && (
+                    <div className="pt-2 border-t border-neutral-200">
+                      <label className="text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase">Context Chunks ({selectedHandoff.context_chunks.length})</label>
+                      <div className="mt-1 max-h-40 overflow-y-auto space-y-2">
+                        {selectedHandoff.context_chunks.map((chunk, i) => (
+                          <div key={i} className="text-[10px] sm:text-xs text-neutral-600 bg-neutral-100 p-2 rounded">
+                            <span className="font-semibold text-neutral-700">Chunk {i + 1}:</span>
+                            <p className="mt-1">{chunk}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <motion.button
+                  onClick={handleCloseModal}
+                  className="px-4 py-2 bg-neutral-200 hover:bg-neutral-300 text-neutral-900 font-medium rounded-lg transition-colors text-sm"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  Close
                 </motion.button>
               </div>
             </div>

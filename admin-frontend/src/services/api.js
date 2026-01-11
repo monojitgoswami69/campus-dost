@@ -847,6 +847,69 @@ export const api = {
     getWeekly: () => apiRequest('/api/v1/dashboard/weekly'),
   },
   /**
+   * Handoff Management API
+   * For managing human handoff requests from the chatbot
+   */
+  handoffs: {
+    /**
+     * List handoff requests for the organization
+     * @param {Object} options - Query options
+     * @param {string} [options.status] - Filter by status: 'pending', 'answered', 'dismissed'
+     * @param {number} [options.limit] - Maximum results (default: 100)
+     * @returns {Promise<{status: string, handoffs: Array, count: number}>}
+     */
+    list: async (options = {}) => {
+      const params = new URLSearchParams();
+      if (options.status) params.append('status', options.status);
+      if (options.limit) params.append('limit', options.limit);
+      const queryString = params.toString();
+      return apiRequest(`/api/v1/handoffs${queryString ? `?${queryString}` : ''}`);
+    },
+
+    /**
+     * Get handoff statistics
+     * @returns {Promise<{status: string, stats: {total: number, pending: number, answered: number, dismissed: number}}>}
+     */
+    getStats: async () => {
+      return apiRequest('/api/v1/handoffs/stats');
+    },
+
+    /**
+     * Get a specific handoff by ID
+     * @param {string} handoffId - Handoff ID
+     * @returns {Promise<{status: string, handoff: Object}>}
+     */
+    get: async (handoffId) => {
+      return apiRequest(`/api/v1/handoffs/${encodeURIComponent(handoffId)}`);
+    },
+
+    /**
+     * Answer a pending handoff request
+     * @param {string} handoffId - Handoff ID
+     * @param {string} answer - Human-provided answer
+     * @returns {Promise<{status: string, message: string, handoff_id: string}>}
+     */
+    answer: async (handoffId, answer) => {
+      return apiRequest(`/api/v1/handoffs/${encodeURIComponent(handoffId)}/answer`, {
+        method: 'POST',
+        body: JSON.stringify({ answer }),
+      });
+    },
+
+    /**
+     * Dismiss a pending handoff request
+     * @param {string} handoffId - Handoff ID
+     * @param {string} [reason] - Optional reason for dismissal
+     * @returns {Promise<{status: string, message: string, handoff_id: string}>}
+     */
+    dismiss: async (handoffId, reason = null) => {
+      return apiRequest(`/api/v1/handoffs/${encodeURIComponent(handoffId)}/dismiss`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      });
+    },
+  },
+  /**
    * Batch download multiple documents as a ZIP file
    * @param {string[]} documentIds - Array of document IDs to download
    * @param {string} source - 'knowledge-base' or 'archive'
@@ -876,6 +939,16 @@ export const api = {
     }
 
     return response.blob();
+  },
+  /**
+   * Legacy method for answering queries - now uses handoffs API
+   * @deprecated Use api.handoffs.answer() instead
+   */
+  answerQuery: async (queryId, data) => {
+    return apiRequest(`/api/v1/handoffs/${encodeURIComponent(queryId)}/answer`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   },
 };
 

@@ -3,13 +3,16 @@ Firestore Database Provider implementation.
 
 Uses Google Cloud Firestore for vector similarity search.
 Includes retry logic for transient failures.
+Includes LRU cache for system instructions to reduce DB hits.
 """
 from __future__ import annotations
 
 import asyncio
 import base64
 import json
-from typing import List, Optional
+import time
+from collections import OrderedDict
+from typing import List, Optional, Dict, Any
 
 from google.cloud import firestore
 from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
@@ -24,13 +27,91 @@ from .interface import DatabaseProviderInterface, VectorSearchResult
 logger = get_logger("database.firestore")
 
 
+# =============================================================================
+# LRU Cache for System Instructions
+# =============================================================================
+
+class SystemInstructionsCache:
+    """
+    LRU Cache for system instructions mapped by org_id.
+    
+    Features:
+    - Per-org cache entries prevent cross-org data conflicts
+    - TTL-based expiration for freshness (5 minutes)
+    - Max entries limit to bound memory usage (100 orgs)
+    - Thread-safe for async operations
+    """
+    
+    def __init__(self, max_entries: int = 100, ttl_seconds: int = 300):
+        self._cache: OrderedDict[str, Dict[str, Any]] = OrderedDict()
+        self._max_entries = max_entries
+        self._ttl_seconds = ttl_seconds
+    
+    def get(self, org_id: str) -> Optional[str]:
+        """Get cached instructions for org_id if not expired."""
+        if org_id not in self._cache:
+            return None
+        
+        entry = self._cache[org_id]
+        
+        # Check TTL
+        if time.time() - entry['cached_at'] > self._ttl_seconds:
+            # Expired, remove from cache
+            del self._cache[org_id]
+            logger.debug(f"System instruction cache expired for org={org_id}")
+            return None
+        
+        # Move to end (most recently used)
+        self._cache.move_to_end(org_id)
+        logger.debug(f"System instruction cache hit for org={org_id}")
+        return entry['content']
+    
+    def set(self, org_id: str, content: str) -> None:
+        """Cache instructions for org_id."""
+        # Remove oldest if at capacity
+        while len(self._cache) >= self._max_entries:
+            oldest_key = next(iter(self._cache))
+            del self._cache[oldest_key]
+            logger.debug(f"System instruction cache evicted oldest entry for org={oldest_key}")
+        
+        self._cache[org_id] = {
+            'content': content,
+            'cached_at': time.time()
+        }
+        # Move to end (most recently used)
+        self._cache.move_to_end(org_id)
+        logger.debug(f"System instruction cache set for org={org_id}")
+    
+    def invalidate(self, org_id: str) -> None:
+        """Invalidate cache for specific org_id."""
+        if org_id in self._cache:
+            del self._cache[org_id]
+            logger.info(f"System instruction cache invalidated for org={org_id}")
+    
+    def stats(self) -> Dict[str, Any]:
+        """Get cache statistics."""
+        return {
+            'entries': len(self._cache),
+            'max_entries': self._max_entries,
+            'ttl_seconds': self._ttl_seconds,
+            'orgs_cached': list(self._cache.keys())
+        }
+
+
 class FirestoreDatabaseProvider(DatabaseProviderInterface):
     """
     Firestore database provider for vector similarity search.
     
     Supports async operations, configurable collection/field names,
     and retry logic for transient failures.
+    Includes LRU cache for system instructions.
     """
+    
+    # Class-level cache shared across all instances (singleton pattern)
+    _instructions_cache = SystemInstructionsCache(
+        max_entries=100,  # Support up to 100 orgs in memory
+        ttl_seconds=300   # 5 minutes TTL
+    )
     
     def __init__(self):
         self._client: Optional[firestore.AsyncClient] = None
@@ -90,11 +171,22 @@ class FirestoreDatabaseProvider(DatabaseProviderInterface):
         embedding: List[float],
         top_k: int = 5,
         similarity_threshold: float = 0.0,
+        org_id: str | None = None,
     ) -> List[VectorSearchResult]:
-        """Search for similar documents using Firestore vector search with retry logic."""
+        """Search for similar documents using Firestore vector search with retry logic.
+        
+        Args:
+            embedding: Query embedding vector
+            top_k: Number of results to return
+            similarity_threshold: Minimum similarity score (0.0 to 1.0)
+            org_id: Organization ID for multi-tenant filtering (optional, defaults to 'default')
+        """
         if not self._client:
             logger.warning("Firestore client not initialized")
             return []
+        
+        # Default to 'default' org_id if not provided
+        org_id = org_id or "default"
         
         last_error: Exception | None = None
         
@@ -103,13 +195,16 @@ class FirestoreDatabaseProvider(DatabaseProviderInterface):
                 vector = Vector(embedding)
                 coll_ref = self._client.collection(settings.FIRESTORE_VECTOR_COLLECTION)
                 
-                query_task = coll_ref.find_nearest(
+                # Build query with org_id filter
+                query = coll_ref.where("org_id", "==", org_id).find_nearest(
                     vector_field=settings.FIRESTORE_VECTOR_FIELD,
                     query_vector=vector,
                     distance_measure=DistanceMeasure.COSINE,
                     limit=top_k,
                     distance_result_field="distance",
-                ).get()
+                )
+                
+                query_task = query.get()
                 
                 results = await asyncio.wait_for(
                     query_task,
@@ -140,6 +235,7 @@ class FirestoreDatabaseProvider(DatabaseProviderInterface):
                 
                 # Sort by score (descending)
                 search_results.sort(key=lambda x: x.score, reverse=True)
+                logger.info(f"Vector search completed for org_id={org_id}, found {len(search_results)} results")
                 return search_results
                 
             except asyncio.TimeoutError as e:
@@ -212,3 +308,58 @@ class FirestoreDatabaseProvider(DatabaseProviderInterface):
                 self._initialized = False
                 self._credentials = None
                 logger.info("Firestore connection closed")
+    
+    async def get_system_instructions(self, org_id: str) -> str | None:
+        """
+        Get system instructions for an organization from Firestore.
+        
+        Uses LRU cache for fast warm starts and reduced DB hits.
+        Falls back to Firestore on cache miss.
+        
+        Fetches from 'system_instructions' collection where document ID = org_id.
+        
+        Args:
+            org_id: Organization identifier
+            
+        Returns:
+            System instruction content string or None if not found
+        """
+        if not self._client:
+            logger.warning("Firestore client not initialized for system instructions fetch")
+            return None
+        
+        # Check cache first
+        cached_content = self._instructions_cache.get(org_id)
+        if cached_content is not None:
+            logger.info(f"System instructions cache hit for org={org_id}")
+            return cached_content
+        
+        # Cache miss - fetch from Firestore
+        try:
+            doc_ref = self._client.collection("system_instructions").document(org_id)
+            doc = await asyncio.wait_for(doc_ref.get(), timeout=5.0)
+            
+            if doc.exists:
+                data = doc.to_dict()
+                content = data.get("content", "")
+                
+                # Cache the result
+                if content:
+                    self._instructions_cache.set(org_id, content)
+                
+                logger.info(
+                    "System instructions fetched from Firestore for org=%s | length=%d | cached=true",
+                    org_id,
+                    len(content) if content else 0
+                )
+                return content
+            else:
+                logger.warning("No system instructions found for org=%s", org_id)
+                return None
+                
+        except asyncio.TimeoutError:
+            logger.error("Timeout fetching system instructions for org=%s", org_id)
+            return None
+        except Exception as e:
+            logger.error("Failed to fetch system instructions for org=%s: %s", org_id, e)
+            return None
