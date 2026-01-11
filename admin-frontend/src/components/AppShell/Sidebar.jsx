@@ -108,7 +108,7 @@ const SidebarItem = memo(function SidebarItem({ item, onClick, index = 0 }) {
   );
 });
 
-const UserSection = memo(function UserSection({ user, onLogout }) {
+const UserSection = memo(function UserSection({ user, onLogout, onSettingsClick }) {
   return (
     <div className="mt-3 pt-3 border-t border-neutral-200 px-2">
       <div className="bg-neutral-50 rounded-lg border border-neutral-200 p-2">
@@ -127,6 +127,13 @@ const UserSection = memo(function UserSection({ user, onLogout }) {
               {user?.role || "Admin"}
             </p>
           </div>
+          <button
+            onClick={onSettingsClick}
+            className="p-1.5 text-neutral-500 hover:text-neutral-700 hover:bg-neutral-200 rounded-md transition-colors focus:outline-none flex-shrink-0"
+            aria-label="User settings"
+          >
+            <Settings className="w-4 h-4" aria-hidden="true" />
+          </button>
         </div>
         <button
           onClick={onLogout}
@@ -169,7 +176,13 @@ export function Sidebar({ isMobileOpen, onCloseMobile }) {
   const handleLogout = useCallback(() => {
     logout();
     navigate('/login');
+    if (onCloseMobile) onCloseMobile();
   }, [logout, navigate]);
+
+  const handleOpenSettings = useCallback(() => {
+    navigate('/user-settings');
+    if (onCloseMobile) onCloseMobile();
+  }, [navigate]);
 
   return (
     <>
@@ -188,7 +201,7 @@ export function Sidebar({ isMobileOpen, onCloseMobile }) {
           </ul>
         </nav>
 
-        <UserSection user={user} onLogout={handleLogout} />
+        <UserSection user={user} onLogout={handleLogout} onSettingsClick={handleOpenSettings} />
       </aside>
 
       {/* Mobile */}
@@ -224,7 +237,7 @@ export function Sidebar({ isMobileOpen, onCloseMobile }) {
                 </ul>
               </nav>
 
-              <UserSection user={user} onLogout={handleLogout} />
+              <UserSection user={user} onLogout={handleLogout} onSettingsClick={handleOpenSettings} />
             </motion.aside>
           </>
         )}

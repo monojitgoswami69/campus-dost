@@ -180,7 +180,7 @@ export default function Settings() {
 
   return (
     <div className="h-full flex flex-col overflow-y-auto overflow-x-hidden py-1 px-0">
-      <div className="p-2 sm:p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+      <div className="py-1 sm:py-2 md:py-3 lg:py-3 px-0 w-full">
         {/* Page Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}

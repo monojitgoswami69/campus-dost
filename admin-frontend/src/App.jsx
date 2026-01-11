@@ -45,6 +45,7 @@ const UnsolvedQueriesPage = lazy(() => import('./pages/UnsolvedQueries'));
 const BotSettingsPage = lazy(() => import('./pages/BotSettings'));
 const SystemInstructionsPage = lazy(() => import('./pages/SystemInstructionsPage'));
 const ArchivePage = lazy(() => import('./pages/ArchivePage'));
+const UserSettingsPage = lazy(() => import('./pages/UserSettings'));
 
 function PageLoader() {
   return (
@@ -256,6 +257,12 @@ function AppContent() {
               actions={<RefreshButton eventName="refresh:archive" />}
             >
               <ArchivePage />
+            </PageWrapper>
+          } />
+
+          <Route path="user-settings" element={
+            <PageWrapper title="User Settings" isFixed={true}>
+              <UserSettingsPage />
             </PageWrapper>
           } />
 
