@@ -171,3 +171,38 @@ class FirestoreHandoffProvider:
         except Exception as e:
             logger.error("Failed to get handoff: %s", e)
             return None
+
+    async def add_email_to_handoff(self, handoff_id: str, email: str) -> bool:
+        """
+        Add user's email to an existing handoff request.
+        
+        Args:
+            handoff_id: The ID of the handoff request
+            email: User's email address
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not await self._ensure_initialized():
+            return False
+        
+        try:
+            doc_ref = self._client.collection(self.COLLECTION_NAME).document(handoff_id)
+            doc = await doc_ref.get()
+            
+            if not doc.exists:
+                logger.warning("Handoff %s not found for email update", handoff_id)
+                return False
+            
+            # Update with email
+            await doc_ref.update({
+                "user_email": email,
+                "email_submitted_at": datetime.now(timezone.utc),
+            })
+            
+            logger.info("Added email to handoff %s: %s", handoff_id, email)
+            return True
+            
+        except Exception as e:
+            logger.error("Failed to add email to handoff %s: %s", handoff_id, e)
+            return False

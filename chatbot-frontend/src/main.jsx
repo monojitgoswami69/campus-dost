@@ -7,6 +7,7 @@ import { LanguageProvider } from './context/LanguageContext';
 import './styles/main.css';
 import './styles/components.css';
 import './styles/animations.css';
+import './styles/HandoffModal.css';
 
 // Viewport height fix for mobile devices
 function setVhProperty() {

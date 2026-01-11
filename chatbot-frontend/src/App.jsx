@@ -3,6 +3,7 @@ import Header from './components/Header';
 import ChatMessages from './components/ChatMessages';
 import InputPane from './components/InputPane';
 import OrgSetupModal from './components/OrgSetupModal';
+import HandoffModal from './components/HandoffModal';
 
 function App() {
     return (
@@ -12,6 +13,7 @@ function App() {
                 <ChatMessages />
                 <InputPane />
                 <OrgSetupModal />
+                <HandoffModal />
             </div>
         </div>
     );

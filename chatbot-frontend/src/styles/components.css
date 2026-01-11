@@ -369,6 +369,32 @@ html[data-theme='dark'] .theme-btn .moon-icon { transform: translateY(0); opacit
     font-style: italic;
 }
 
+/* Handoff Message (Escalation Notice) */
+.message.handoff .message-content.handoff-message {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    border-radius: var(--radius-lg);
+    padding: var(--space-3) var(--space-4);
+}
+
+.handoff-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    padding: var(--space-1) var(--space-3);
+    border-radius: var(--radius-full);
+    margin-bottom: var(--space-2);
+}
+
+.handoff-badge svg {
+    width: 14px;
+    height: 14px;
+}
+
 /* Markdown Content */
 .markdown-content p { margin-bottom: 1em; }
 .markdown-content p:last-child { margin-bottom: 0; }

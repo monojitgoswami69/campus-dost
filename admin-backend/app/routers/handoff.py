@@ -45,6 +45,8 @@ class HandoffResponse(BaseModel):
     answer: Optional[str] = None
     answered_by: Optional[str] = None
     answered_at: Optional[str] = None
+    user_email: Optional[str] = None
+    email_submitted_at: Optional[str] = None
     created_at: str
     metadata: dict = {}
 

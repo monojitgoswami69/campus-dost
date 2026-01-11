@@ -40,6 +40,7 @@ from app.models import ErrorResponse
 from app.routes import chat as chat_routes
 from app.routes import health
 from app.routes import session
+from app.routes import handoff as handoff_routes
 from app.state import AppState
 
 logger = get_logger("app.main")
@@ -177,6 +178,7 @@ def configure_cors(application: FastAPI) -> None:
         allow_credentials=allow_credentials,
         allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["*"],
+        expose_headers=["X-Handoff-Required", "X-Handoff-Id", "X-Confidence"],
     )
 
 
@@ -248,6 +250,9 @@ def configure_routes(application: FastAPI) -> None:
     
     # Session management routes
     application.include_router(session.router)
+    
+    # Handoff routes (email submission)
+    application.include_router(handoff_routes.router)
     
     # Chat endpoint with rate limiting
     limiter = application.state.limiter

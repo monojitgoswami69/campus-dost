@@ -20,6 +20,12 @@ export function ChatProvider({ children }) {
     });
     const [showOrgSetup, setShowOrgSetup] = useState(false);
     const [organizations, setOrganizations] = useState([]);
+    
+    // Handoff state
+    const [showHandoffModal, setShowHandoffModal] = useState(false);
+    const [handoffData, setHandoffData] = useState(null);
+    const [handoffSubmitting, setHandoffSubmitting] = useState(false);
+    
     const sessionIdRef = useRef(generateSessionId());
 
     // Start session on mount
@@ -99,6 +105,44 @@ export function ChatProvider({ children }) {
         addMessage('system', `Organization switched to: ${selectedOrgId.toUpperCase()}`, { isSystem: true });
     }, []);
 
+    // Handoff email submission
+    const submitHandoffEmail = useCallback(async (email) => {
+        if (!handoffData) return;
+        
+        setHandoffSubmitting(true);
+        try {
+            const response = await fetch(`${BACKEND_URL}/handoff/${handoffData.handoffId}/email`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    email,
+                    org_id: orgId 
+                })
+            });
+            
+            if (response.ok) {
+                // Add success message
+                addMessage('system', `✓ We've recorded your email (${email}). Our team will get back to you soon!`, { isSystem: true });
+            } else {
+                addMessage('system', `Your question has been submitted. We'll respond to ${email} soon.`, { isSystem: true });
+            }
+        } catch (error) {
+            console.error('Failed to submit email:', error);
+            addMessage('system', `Your question has been logged. Our team will review it.`, { isSystem: true });
+        } finally {
+            setHandoffSubmitting(false);
+            setShowHandoffModal(false);
+            setHandoffData(null);
+        }
+    }, [handoffData, orgId, addMessage]);
+
+    // Skip handoff email
+    const skipHandoffEmail = useCallback(() => {
+        addMessage('system', 'Your question has been logged. Our team will review it.', { isSystem: true });
+        setShowHandoffModal(false);
+        setHandoffData(null);
+    }, [addMessage]);
+
     const sendMessage = useCallback(async (messageText) => {
         if (!messageText.trim() || isWaitingForResponse) return;
 
@@ -124,6 +168,9 @@ export function ChatProvider({ children }) {
             let fullReply = '';
             const charQueue = [];
             let rendererInterval = null;
+            let handoffRequired = false;
+            let handoffId = null;
+            let confidence = 0;
 
             try {
                 // Character renderer for typing effect
@@ -153,6 +200,11 @@ export function ChatProvider({ children }) {
                     throw new Error(`HTTP error! Status: ${response.status}`);
                 }
                 
+                // Check handoff headers
+                handoffRequired = response.headers.get('X-Handoff-Required') === 'true';
+                handoffId = response.headers.get('X-Handoff-Id');
+                confidence = parseInt(response.headers.get('X-Confidence') || '0', 10);
+                
                 setIsTyping(false);
 
                 const reader = response.body.getReader();
@@ -171,6 +223,29 @@ export function ChatProvider({ children }) {
                                 }
                             }, 50);
                         });
+                        
+                        // Handle handoff - replace bot message with handoff message
+                        if (handoffRequired && handoffId) {
+                            // Update the bot message to show escalation notice
+                            setMessages(prev => prev.map(msg => 
+                                msg.id === botMessageId 
+                                    ? { 
+                                        ...msg, 
+                                        text: "I'm not confident I can answer this question accurately. Let me connect you with our support team who can help you better.",
+                                        isHandoff: true,
+                                        isStreaming: false
+                                    }
+                                    : msg
+                            ));
+                            
+                            // Show handoff modal for email collection
+                            setHandoffData({
+                                handoffId,
+                                query: messageText,
+                                confidence
+                            });
+                            setShowHandoffModal(true);
+                        }
                         
                         setIsWaitingForResponse(false);
                         setStreamingMessageId(null);
@@ -212,7 +287,13 @@ export function ChatProvider({ children }) {
             showOrgSetup,
             organizations,
             closeOrgSetup,
-            selectOrganization
+            selectOrganization,
+            // Handoff state
+            showHandoffModal,
+            handoffData,
+            handoffSubmitting,
+            submitHandoffEmail,
+            skipHandoffEmail
         }}>
             {children}
         </ChatContext.Provider>

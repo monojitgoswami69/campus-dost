@@ -89,6 +89,8 @@ export default function UnsolvedQueries() {
           answer: h.answer,
           answeredBy: h.answered_by,
           answeredAt: h.answered_at ? formatDate(h.answered_at) : null,
+          userEmail: h.user_email || null,
+          emailSubmittedAt: h.email_submitted_at ? formatDate(h.email_submitted_at) : null,
         }));
         setHandoffs(transformedHandoffs);
       }
@@ -466,6 +468,15 @@ export default function UnsolvedQueries() {
                         Bot said: {handoff.llmResponse.substring(0, 60)}...
                       </div>
                     )}
+                    {handoff.userEmail && (
+                      <div className="text-[10px] sm:text-xs text-blue-600 mt-0.5 flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                          <polyline points="22,6 12,13 2,6"></polyline>
+                        </svg>
+                        {handoff.userEmail}
+                      </div>
+                    )}
                   </td>
                   <td className="hidden md:table-cell px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 text-center align-middle">
                     <div className={cn(
@@ -551,19 +562,34 @@ export default function UnsolvedQueries() {
             size="large"
           >
             <div className="space-y-3 sm:space-y-4">
+              {/* User Email Alert */}
+              {selectedHandoff.userEmail && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                  <div>
+                    <p className="text-xs sm:text-sm font-medium text-blue-800">
+                      User requested email response
+                    </p>
+                    <p className="text-xs text-blue-600">
+                      Reply to: <span className="font-semibold">{selectedHandoff.userEmail}</span>
+                    </p>
+                  </div>
+                </div>
+              )}
+              
               {/* Query Info */}
               <div className="bg-neutral-50 rounded-lg p-3 sm:p-4 border border-neutral-200">
                 <div className="space-y-3">
                   <div>
                     <label className="text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase">User's Question</label>
-                    <p className="text-xs sm:text-sm text-neutral-900 mt-1 break-words">"{selectedHandoff.query}"</p>
+                    <p className="text-xs sm:text-sm text-neutral-900 mt-1 break-words">"{selectedHandoff.question}"</p>
                   </div>
                   
-                  {selectedHandoff.llm_response && (
+                  {selectedHandoff.llmResponse && (
                     <div className="pt-2 border-t border-neutral-200">
                       <label className="text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase">Bot's Response (Uncertain)</label>
                       <p className="text-xs sm:text-sm text-neutral-600 mt-1 break-words bg-yellow-50 p-2 rounded border border-yellow-200">
-                        {selectedHandoff.llm_response}
+                        {selectedHandoff.llmResponse}
                       </p>
                     </div>
                   )}
@@ -582,24 +608,24 @@ export default function UnsolvedQueries() {
                     <div>
                       <label className="text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase">Similarity Score</label>
                       <p className="text-xs sm:text-sm text-neutral-600 mt-1">
-                        {(selectedHandoff.similarity_score * 100).toFixed(1)}%
+                        {(selectedHandoff.similarityScore * 100).toFixed(1)}%
                       </p>
                     </div>
                     <div>
                       <label className="text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase">Date</label>
                       <p className="text-xs sm:text-sm text-neutral-600 mt-1">
-                        {new Date(selectedHandoff.created_at).toLocaleDateString()}
+                        {selectedHandoff.date}
                       </p>
                     </div>
                   </div>
 
-                  {selectedHandoff.context_chunks && selectedHandoff.context_chunks.length > 0 && (
+                  {selectedHandoff.contextChunks && selectedHandoff.contextChunks.length > 0 && (
                     <div className="pt-2 border-t border-neutral-200">
-                      <label className="text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase">Context Used ({selectedHandoff.context_chunks.length} chunks)</label>
+                      <label className="text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase">Context Used ({selectedHandoff.contextChunks.length} chunks)</label>
                       <div className="mt-1 max-h-24 overflow-y-auto space-y-1">
-                        {selectedHandoff.context_chunks.slice(0, 3).map((chunk, i) => (
+                        {selectedHandoff.contextChunks.slice(0, 3).map((chunk, i) => (
                           <p key={i} className="text-[10px] sm:text-xs text-neutral-500 bg-neutral-100 p-1.5 rounded truncate">
-                            {chunk.substring(0, 150)}...
+                            {typeof chunk === 'string' ? chunk.substring(0, 150) : JSON.stringify(chunk).substring(0, 150)}...
                           </p>
                         ))}
                       </div>
@@ -678,18 +704,33 @@ export default function UnsolvedQueries() {
             size="large"
           >
             <div className="space-y-3 sm:space-y-4">
+              {/* User Email Info */}
+              {selectedHandoff.userEmail && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <label className="text-[10px] sm:text-xs font-semibold text-blue-700 uppercase">User's Email</label>
+                  <p className="text-xs sm:text-sm text-blue-800 mt-1 font-medium">
+                    {selectedHandoff.userEmail}
+                  </p>
+                  {selectedHandoff.emailSubmittedAt && (
+                    <p className="text-[10px] sm:text-xs text-blue-600 mt-0.5">
+                      Submitted: {selectedHandoff.emailSubmittedAt}
+                    </p>
+                  )}
+                </div>
+              )}
+              
               <div className="bg-neutral-50 rounded-lg p-3 sm:p-4 border border-neutral-200">
                 <div className="space-y-3">
                   <div>
                     <label className="text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase">User's Question</label>
-                    <p className="text-xs sm:text-sm text-neutral-900 mt-1 break-words">"{selectedHandoff.query}"</p>
+                    <p className="text-xs sm:text-sm text-neutral-900 mt-1 break-words">"{selectedHandoff.question}"</p>
                   </div>
                   
-                  {selectedHandoff.llm_response && (
+                  {selectedHandoff.llmResponse && (
                     <div className="pt-2 border-t border-neutral-200">
                       <label className="text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase">Bot's Response</label>
                       <p className="text-xs sm:text-sm text-neutral-600 mt-1 break-words bg-blue-50 p-2 rounded border border-blue-200">
-                        {selectedHandoff.llm_response}
+                        {selectedHandoff.llmResponse}
                       </p>
                     </div>
                   )}
@@ -720,13 +761,13 @@ export default function UnsolvedQueries() {
                     <div>
                       <label className="text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase">Similarity</label>
                       <p className="text-xs sm:text-sm text-neutral-600 mt-1">
-                        {(selectedHandoff.similarity_score * 100).toFixed(1)}%
+                        {(selectedHandoff.similarityScore * 100).toFixed(1)}%
                       </p>
                     </div>
                     <div>
                       <label className="text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase">Created</label>
                       <p className="text-xs sm:text-sm text-neutral-600 mt-1">
-                        {new Date(selectedHandoff.created_at).toLocaleString()}
+                        {selectedHandoff.date}
                       </p>
                     </div>
                   </div>
@@ -737,22 +778,22 @@ export default function UnsolvedQueries() {
                       <p className="text-xs sm:text-sm text-neutral-900 mt-1 break-words bg-green-50 p-2 rounded border border-green-200">
                         {selectedHandoff.answer}
                       </p>
-                      {selectedHandoff.answered_by && (
+                      {selectedHandoff.answeredBy && (
                         <p className="text-[10px] sm:text-xs text-neutral-500 mt-1">
-                          Answered by: {selectedHandoff.answered_by} on {new Date(selectedHandoff.answered_at).toLocaleString()}
+                          Answered by: {selectedHandoff.answeredBy} on {selectedHandoff.answeredAt}
                         </p>
                       )}
                     </div>
                   )}
 
-                  {selectedHandoff.context_chunks && selectedHandoff.context_chunks.length > 0 && (
+                  {selectedHandoff.contextChunks && selectedHandoff.contextChunks.length > 0 && (
                     <div className="pt-2 border-t border-neutral-200">
-                      <label className="text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase">Context Chunks ({selectedHandoff.context_chunks.length})</label>
+                      <label className="text-[10px] sm:text-xs font-semibold text-neutral-500 uppercase">Context Chunks ({selectedHandoff.contextChunks.length})</label>
                       <div className="mt-1 max-h-40 overflow-y-auto space-y-2">
-                        {selectedHandoff.context_chunks.map((chunk, i) => (
+                        {selectedHandoff.contextChunks.map((chunk, i) => (
                           <div key={i} className="text-[10px] sm:text-xs text-neutral-600 bg-neutral-100 p-2 rounded">
                             <span className="font-semibold text-neutral-700">Chunk {i + 1}:</span>
-                            <p className="mt-1">{chunk}</p>
+                            <p className="mt-1">{typeof chunk === 'string' ? chunk : JSON.stringify(chunk)}</p>
                           </div>
                         ))}
                       </div>
